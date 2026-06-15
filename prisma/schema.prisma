@@ -1,0 +1,552 @@
+// Tenant Management System — data model derived from the SRS.
+// Postgres + Prisma. Three roles share one User table; data is scoped by role.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// Enums
+// ----------------------------------------------------------------------------
+
+enum Role {
+  MASTER_ADMIN
+  LANDLORD
+  TENANT
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  ROOM
+  COMMERCIAL
+  OTHER
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  OCCUPIED
+  UNAVAILABLE
+}
+
+enum LeaseStatus {
+  DRAFT
+  ACTIVE
+  RENEWED
+  TERMINATED
+  EXPIRED
+  COMPLETED
+}
+
+enum NoticeParty {
+  TENANT
+  LANDLORD
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  UPI
+  DEBIT_CARD
+  CREDIT_CARD
+  NET_BANKING
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum MaintenanceStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  REJECTED
+}
+
+enum ComplaintStatus {
+  OPEN
+  RESPONDED
+  RESOLVED
+  CLOSED
+  REOPENED
+}
+
+enum RatingDirection {
+  LANDLORD_TO_TENANT
+  TENANT_TO_LANDLORD
+}
+
+enum RatingStatus {
+  VISIBLE
+  FLAGGED
+  REMOVED
+}
+
+enum DocumentType {
+  LEASE
+  GOVERNMENT_ID
+  PROPERTY_PROOF
+  PHOTO
+  OTHER
+}
+
+// ----------------------------------------------------------------------------
+// Users
+// ----------------------------------------------------------------------------
+
+model User {
+  id               String     @id @default(cuid())
+  email            String     @unique
+  passwordHash     String
+  role             Role
+  status           UserStatus @default(ACTIVE)
+  verified         Boolean    @default(false) // tenant info verification (SRS §4.1)
+  reviewsSuspended Boolean    @default(false) // review privileges suspended (SRS §4.1)
+
+  fullName         String
+  phone            String?
+  governmentId     String?
+  emergencyContact String?
+  avatarUrl        String?
+
+  // Delegated onboarding: a tenant is managed/approved by a landlord.
+  landlordId       String?
+  landlord         User?      @relation("ManagedTenants", fields: [landlordId], references: [id])
+  managedTenants   User[]     @relation("ManagedTenants")
+
+  // Relations as landlord
+  ownedProperties  Property[]            @relation("LandlordProperties")
+  landlordLeases   Lease[]               @relation("LandlordLeases")
+
+  // Relations as tenant
+  tenantLeases     Lease[]               @relation("TenantLeases")
+  payments         Payment[]
+  maintenance      MaintenanceRequest[]  @relation("TenantMaintenance")
+  complaints       Complaint[]           @relation("TenantComplaints")
+
+  // Ratings given / received
+  ratingsGiven     Rating[]   @relation("RatingsGiven")
+  ratingsReceived  Rating[]   @relation("RatingsReceived")
+
+  documents        Document[]
+  notifications    Notification[]
+  pushSubs         PushSubscription[]
+  auditLogs        AuditLog[]
+  complaintMsgs    ComplaintMessage[]
+  resetTokens      PasswordResetToken[]
+
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@index([role])
+  @@index([status])
+  @@index([landlordId])
+}
+
+// ----------------------------------------------------------------------------
+// Properties & Units
+// ----------------------------------------------------------------------------
+
+enum FurnishingStatus {
+  UNFURNISHED
+  SEMI_FURNISHED
+  FURNISHED
+}
+
+model Property {
+  id               String             @id @default(cuid())
+  landlord         User               @relation("LandlordProperties", fields: [landlordId], references: [id])
+  landlordId       String
+
+  name             String
+  type             PropertyType       @default(APARTMENT)
+  address          String
+  description      String?
+  rooms            Int?               // bedrooms
+  bathrooms        Int?               // washrooms
+  balconies        Int?
+  floor            Int?               // which floor this unit is on
+  totalFloors      Int?               // floors in the building
+  areaSqft         Int?               // carpet/built-up area
+  furnishing       FurnishingStatus   @default(UNFURNISHED)
+  hasLobby         Boolean            @default(false)
+  hasParking       Boolean            @default(false)
+  hasLift          Boolean            @default(false)
+  powerBackup      Boolean            @default(false)
+  rentAmount       Decimal            @db.Decimal(12, 2)
+  securityDeposit  Decimal            @db.Decimal(12, 2) @default(0)
+  amenities        String[]           @default([])
+  availability     AvailabilityStatus @default(AVAILABLE)
+  numberOfUnits    Int                @default(1)
+  noticePeriodDays Int                @default(30) // default notice-to-vacate period for this property
+  verified         Boolean            @default(false) // ownership documents verified
+  approved         Boolean            @default(false) // property registration approved
+
+  units            Unit[]
+  leases           Lease[]
+  maintenance      MaintenanceRequest[]
+  complaints       Complaint[]
+  documents        Document[]
+  applications     Application[]
+  visits           Visit[]
+
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([landlordId])
+  @@index([availability])
+}
+
+enum VisitStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+  CANCELLED
+  COMPLETED
+}
+
+// A prospective tenant's request to tour a property.
+model Visit {
+  id          String      @id @default(cuid())
+  property    Property    @relation(fields: [propertyId], references: [id])
+  propertyId  String
+  fullName    String
+  email       String
+  phone       String?
+  preferredAt DateTime
+  message     String?
+  status      VisitStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([propertyId])
+  @@index([status])
+}
+
+model Unit {
+  id          String             @id @default(cuid())
+  property    Property           @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  propertyId  String
+  label       String // e.g. "Unit 2B", "Room 3"
+  availability AvailabilityStatus @default(AVAILABLE)
+  leases      Lease[]
+  maintenance MaintenanceRequest[]
+
+  @@index([propertyId])
+}
+
+// ----------------------------------------------------------------------------
+// Leases
+// ----------------------------------------------------------------------------
+
+model Lease {
+  id                String      @id @default(cuid())
+  property          Property    @relation(fields: [propertyId], references: [id])
+  propertyId        String
+  unit              Unit?       @relation(fields: [unitId], references: [id])
+  unitId            String?
+
+  landlord          User        @relation("LandlordLeases", fields: [landlordId], references: [id])
+  landlordId        String
+  tenant            User        @relation("TenantLeases", fields: [tenantId], references: [id])
+  tenantId          String
+
+  startDate         DateTime
+  endDate           DateTime
+  monthlyRent       Decimal     @db.Decimal(12, 2)
+  securityDeposit   Decimal     @db.Decimal(12, 2) @default(0)
+  maintenanceFee    Decimal?    @db.Decimal(12, 2) // optional monthly maintenance charge
+  terms             String?
+  signedContractUrl String?
+  status            LeaseStatus @default(DRAFT)
+
+  // Notice-to-vacate / terminate (either party may give notice)
+  noticePeriodDays    Int          @default(30)
+  noticeGivenAt       DateTime?
+  noticeByParty       NoticeParty?
+  noticeEffectiveDate DateTime?
+
+  invoices          Invoice[]
+  ratings           Rating[]
+  documents         Document[]
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([landlordId])
+  @@index([tenantId])
+  @@index([propertyId])
+  @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// Invoices & Payments
+// ----------------------------------------------------------------------------
+
+model Invoice {
+  id          String        @id @default(cuid())
+  lease       Lease         @relation(fields: [leaseId], references: [id])
+  leaseId     String
+  periodMonth DateTime // first day of the billed month
+  amount      Decimal       @db.Decimal(12, 2)
+  dueDate     DateTime
+  status      InvoiceStatus @default(PENDING)
+  payments    Payment[]
+
+  // Rent-reminder milestones already sent (e.g. "T-7","T-3","DUE","OVERDUE") — prevents duplicate reminders.
+  remindersSent String[]    @default([])
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([leaseId, periodMonth])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model Payment {
+  id               String        @id @default(cuid())
+  invoice          Invoice       @relation(fields: [invoiceId], references: [id])
+  invoiceId        String
+  tenant           User          @relation(fields: [tenantId], references: [id])
+  tenantId         String
+
+  amount           Decimal       @db.Decimal(12, 2)
+  method           PaymentMethod
+  status           PaymentStatus @default(PENDING)
+  gatewayOrderId   String? // Razorpay order id
+  gatewayPaymentId String? // Razorpay payment id
+  receiptUrl       String?
+  paidAt           DateTime?
+  verified         Boolean       @default(false) // reconciled/verified by admin
+  refundedAt       DateTime?
+  notes            String? // reference / refund reason
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([invoiceId])
+  @@index([tenantId])
+  @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// Maintenance
+// ----------------------------------------------------------------------------
+
+model MaintenanceRequest {
+  id          String            @id @default(cuid())
+  property    Property          @relation(fields: [propertyId], references: [id])
+  propertyId  String
+  unit        Unit?             @relation(fields: [unitId], references: [id])
+  unitId      String?
+  tenant      User              @relation("TenantMaintenance", fields: [tenantId], references: [id])
+  tenantId    String
+
+  title       String
+  description String
+  priority    Priority          @default(MEDIUM)
+  status      MaintenanceStatus @default(PENDING)
+  assignedTo  String? // technician name / contact
+  images      String[]          @default([])
+
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([propertyId])
+  @@index([tenantId])
+  @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// Complaints
+// ----------------------------------------------------------------------------
+
+model Complaint {
+  id          String             @id @default(cuid())
+  property    Property?          @relation(fields: [propertyId], references: [id])
+  propertyId  String?
+  tenant      User               @relation("TenantComplaints", fields: [tenantId], references: [id])
+  tenantId    String
+
+  subject     String
+  description String
+  status      ComplaintStatus    @default(OPEN)
+  messages    ComplaintMessage[]
+
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+model ComplaintMessage {
+  id          String    @id @default(cuid())
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  complaintId String
+  author      User      @relation(fields: [authorId], references: [id])
+  authorId    String
+  body        String
+  createdAt   DateTime  @default(now())
+
+  @@index([complaintId])
+}
+
+// ----------------------------------------------------------------------------
+// Ratings & Reviews (two-way)
+// ----------------------------------------------------------------------------
+
+model Rating {
+  id          String          @id @default(cuid())
+  lease       Lease           @relation(fields: [leaseId], references: [id])
+  leaseId     String
+  direction   RatingDirection
+  rater       User            @relation("RatingsGiven", fields: [raterId], references: [id])
+  raterId     String
+  ratee       User            @relation("RatingsReceived", fields: [rateeId], references: [id])
+  rateeId     String
+
+  stars       Int // 1..5
+  feedback    String?
+  recommend   Boolean         @default(false)
+  criteria    Json? // per-direction criteria scores
+  status      RatingStatus    @default(VISIBLE)
+
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([leaseId, direction]) // one rating per side per lease
+  @@index([rateeId])
+  @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// Documents, Notifications, Push, Audit
+// ----------------------------------------------------------------------------
+
+model Document {
+  id          String       @id @default(cuid())
+  owner       User         @relation(fields: [ownerId], references: [id])
+  ownerId     String
+  property    Property?    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  propertyId  String?
+  lease       Lease?       @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  leaseId     String?
+  type        DocumentType @default(OTHER)
+  // Local-storage files use storageKey; url is kept for external/legacy links.
+  url         String?
+  storageKey  String?
+  fileName    String?
+  contentType String?
+  sizeBytes   Int?
+  label       String?
+  createdAt   DateTime     @default(now())
+
+  @@index([ownerId])
+  @@index([propertyId])
+  @@index([leaseId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  type      String
+  title     String
+  body      String?
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Public rental application submitted by a prospective tenant against a listing.
+model Application {
+  id         String            @id @default(cuid())
+  property   Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  propertyId String
+  fullName   String
+  email      String
+  phone      String?
+  message    String?
+  status     ApplicationStatus @default(PENDING)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@index([propertyId])
+  @@index([status])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actor     User?    @relation(fields: [actorId], references: [id])
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([entity, entityId])
+}

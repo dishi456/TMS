@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# serwist (generated service worker)
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js
+
+# local uploaded files (use a mounted volume / R2 in production)
+/storage
+
+# allow committing the example env, ignore real env above
+!.env.example
