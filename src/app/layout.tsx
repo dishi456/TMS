@@ -2,17 +2,17 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  applicationName: "TMS",
+  applicationName: "Lease Lord",
   title: {
-    default: "Tenant Management System",
-    template: "%s · TMS",
+    default: "Lease Lord",
+    template: "%s · Lease Lord",
   },
   description: "Manage properties, leases, rent, maintenance and complaints.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "TMS",
+    title: "Lease Lord",
   },
   formatDetection: { telephone: false },
 };

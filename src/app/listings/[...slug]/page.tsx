@@ -1,9 +1,12 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Logo } from "@/components/Logo";
 import { Badge } from "@/components/ui";
+import { roleHome, type Role } from "@/lib/roles";
+import { propertyPath } from "@/lib/property-path";
 import { formatMoney, formatNumber } from "@/lib/format";
 import { PropertyGallery } from "./PropertyGallery";
 import { InquiryPanel } from "./InquiryPanel";
@@ -33,10 +36,16 @@ const FURNISHING: Record<string, string> = {
 };
 const cap = (s: string) => s.charAt(0) + s.slice(1).toLowerCase();
 
-export default async function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function ListingDetailPage({ params }: { params: Promise<{ slug: string[] }> }) {
+  const { slug } = await params;
+  // Canonical URL is /listings/{category}/{type}/{city}/{ref}; the identifier
+  // is always the last path segment. We also accept a bare /listings/{ref|id}.
+  const identifier = decodeURIComponent(slug[slug.length - 1] ?? "");
+  const session = await auth();
+  const loggedIn = !!session?.user;
+  const home = session?.user ? (roleHome[session.user.role as Role] ?? "/account") : null;
   const property = await prisma.property.findFirst({
-    where: { id, approved: true, listedPublic: true },
+    where: { OR: [{ ref: identifier }, { id: identifier }], approved: true, listedPublic: true },
     include: {
       documents: { where: { type: "PHOTO" }, orderBy: { createdAt: "asc" } },
       landlord: { select: { fullName: true, verified: true } },
@@ -49,6 +58,11 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
     },
   });
   if (!property) notFound();
+
+  // Send any non-canonical path (bare id/ref, or wrong type/city) to the
+  // canonical SEO URL.
+  const canonical = propertyPath(property);
+  if (`/listings/${slug.join("/")}` !== canonical) redirect(canonical);
 
   const available = property.availability === "AVAILABLE";
   const onNotice = !available && property.leases.length > 0;
@@ -92,7 +106,11 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link href="/listings"><Logo className="h-9" /></Link>
-          <Link href="/login" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Sign in</Link>
+          {home ? (
+            <Link href={home} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">My account</Link>
+          ) : (
+            <Link href="/login" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Sign in</Link>
+          )}
         </div>
       </header>
 
@@ -163,7 +181,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
 
           {/* ---------- Right: inquiry panel (sticky) ---------- */}
           <div className="self-start lg:sticky lg:top-20">
-            <InquiryPanel propertyId={property.id} available={available} />
+            <InquiryPanel propertyId={property.id} available={available} loggedIn={loggedIn} />
           </div>
         </div>
       </div>

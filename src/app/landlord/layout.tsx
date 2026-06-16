@@ -42,13 +42,18 @@ export default async function LandlordLayout({
     );
   }
 
-  const [unread, chatUnread] = await Promise.all([
-    prisma.notification.count({ where: { userId: session!.user.id, read: false } }),
-    prisma.inquiryMessage.count({ where: { fromGuest: true, readByLandlord: false, inquiry: { landlordId: session!.user.id } } }),
+  const landlordId = session!.user.id;
+  const [unread, chatUnread, pendingApps, pendingVisits] = await Promise.all([
+    prisma.notification.count({ where: { userId: landlordId, read: false } }),
+    prisma.inquiryMessage.count({ where: { fromGuest: true, readByLandlord: false, inquiry: { landlordId } } }),
+    prisma.application.count({ where: { status: "PENDING", property: { landlordId } } }),
+    prisma.visit.count({ where: { status: "PENDING", property: { landlordId } } }),
   ]);
+  // Total open inbound requests for the "Requests" nav badge.
+  const requestsPending = pendingApps + pendingVisits + chatUnread;
 
   return (
-    <LandlordShell userName={session?.user?.name ?? "Landlord"} verified={me?.verified ?? false} unread={unread} chatUnread={chatUnread}>
+    <LandlordShell userName={session?.user?.name ?? "Landlord"} verified={me?.verified ?? false} unread={unread} chatUnread={chatUnread} requestsPending={requestsPending}>
       {children}
     </LandlordShell>
   );

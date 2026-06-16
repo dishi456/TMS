@@ -6,6 +6,7 @@ import path from "path";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { generatePropertyRef } from "@/lib/property-ref";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { audit } from "@/lib/audit";
 import { saveFile, removeFile } from "@/lib/storage";
@@ -100,7 +101,7 @@ export async function createProperty(_prev: FormState, formData: FormData): Prom
   const parsed = schema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const created = await prisma.property.create({ data: toData(parsed.data) });
+  const created = await prisma.property.create({ data: { ...toData(parsed.data), ref: await generatePropertyRef() } });
   await audit({
     actorId: session.user.id,
     action: "property.create",

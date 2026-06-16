@@ -10,6 +10,14 @@ import { setUserStatus, deleteUser } from "./actions";
 export const dynamic = "force-dynamic";
 
 const STATUSES = ["PENDING", "ACTIVE", "SUSPENDED"];
+const VIEWS = ["LANDLORD", "TENANT", "USER", "ALL"] as const;
+type View = (typeof VIEWS)[number];
+const ROLE_LABEL: Record<string, string> = {
+  MASTER_ADMIN: "Admin",
+  LANDLORD: "Landlord",
+  TENANT: "Tenant",
+  USER: "Seeker",
+};
 
 type Search = {
   role?: string;
@@ -26,14 +34,14 @@ export default async function UsersPage({
   searchParams: Promise<Search>;
 }) {
   const sp = await searchParams;
-  const role = sp.role === "TENANT" ? "TENANT" : "LANDLORD";
+  const view: View = VIEWS.includes(sp.role as View) ? (sp.role as View) : "LANDLORD";
   const status = STATUSES.includes(sp.status ?? "") ? sp.status : "";
   const q = (sp.q ?? "").trim();
-  const isTenant = role === "TENANT";
+  const canCreate = view === "LANDLORD" || view === "TENANT";
 
   const users = await prisma.user.findMany({
     where: {
-      role,
+      ...(view === "ALL" ? {} : { role: view }),
       ...(status ? { status: status as Prisma.UserWhereInput["status"] } : {}),
       ...(q
         ? {
@@ -71,22 +79,22 @@ export default async function UsersPage({
       {/* Tabs + New */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
-          <Tab href="/master-admin/users?role=LANDLORD" active={!isTenant}>
-            Landlords
-          </Tab>
-          <Tab href="/master-admin/users?role=TENANT" active={isTenant}>
-            Tenants
-          </Tab>
+          <Tab href="/master-admin/users?role=LANDLORD" active={view === "LANDLORD"}>Landlords</Tab>
+          <Tab href="/master-admin/users?role=TENANT" active={view === "TENANT"}>Tenants</Tab>
+          <Tab href="/master-admin/users?role=USER" active={view === "USER"}>Users</Tab>
+          <Tab href="/master-admin/users?role=ALL" active={view === "ALL"}>All</Tab>
         </div>
 
-        <Link href={`/master-admin/users/new?role=${role}`} className={btn("primary")}>
-          + New {isTenant ? "Tenant" : "Landlord"}
-        </Link>
+        {canCreate && (
+          <Link href={`/master-admin/users/new?role=${view}`} className={btn("primary")}>
+            + New {view === "TENANT" ? "Tenant" : "Landlord"}
+          </Link>
+        )}
       </div>
 
       {/* Search + status filter */}
       <form className="flex flex-wrap gap-2">
-        <input type="hidden" name="role" value={role} />
+        <input type="hidden" name="role" value={view} />
         <input
           name="q"
           defaultValue={q}
@@ -101,7 +109,7 @@ export default async function UsersPage({
         </select>
         <button className={btn("secondary")}>Filter</button>
         {(q || status) && (
-          <Link href={`/master-admin/users?role=${role}`} className={btn("ghost")}>
+          <Link href={`/master-admin/users?role=${view}`} className={btn("ghost")}>
             Clear
           </Link>
         )}
@@ -113,6 +121,7 @@ export default async function UsersPage({
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3 font-medium">Name</th>
+              <th className="px-4 py-3 font-medium">Role</th>
               <th className="px-4 py-3 font-medium">Contact</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Rating</th>
@@ -123,8 +132,8 @@ export default async function UsersPage({
           <tbody className="divide-y divide-slate-100">
             {users.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
-                  No {isTenant ? "tenants" : "landlords"} found.
+                <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
+                  No {view === "ALL" ? "users" : (ROLE_LABEL[view] ?? view).toLowerCase() + "s"} found.
                 </td>
               </tr>
             )}
@@ -140,6 +149,11 @@ export default async function UsersPage({
                       {u.fullName}
                     </Link>
                     <div className="text-xs text-slate-400">{u.email}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge tone={u.role === "LANDLORD" ? "sky" : u.role === "TENANT" ? "green" : u.role === "MASTER_ADMIN" ? "amber" : "slate"}>
+                      {ROLE_LABEL[u.role] ?? u.role}
+                    </Badge>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{u.phone ?? "—"}</td>
                   <td className="px-4 py-3">
@@ -183,7 +197,7 @@ export default async function UsersPage({
                       </form>
                       <form action={deleteUser}>
                         <input type="hidden" name="id" value={u.id} />
-                        <input type="hidden" name="role" value={role} />
+                        <input type="hidden" name="role" value={view} />
                         <ConfirmButton
                           message={`Delete ${u.fullName}? This cannot be undone.`}
                           className={btn("danger", "px-2.5 py-1.5")}

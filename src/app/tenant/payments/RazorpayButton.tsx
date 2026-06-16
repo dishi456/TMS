@@ -47,7 +47,7 @@ export function RazorpayButton({ invoiceId, label }: { invoiceId: string; label:
         order_id: order.orderId,
         amount: order.amount,
         currency: order.currency,
-        name: "Tenant Management System",
+        name: "Lease Lord",
         description: "Rent payment",
         theme: { color: "#2563EB" },
         handler: async (resp: Record<string, string>) => {

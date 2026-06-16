@@ -7,7 +7,7 @@ import { OwnerChat } from "./OwnerChat";
 
 type Mode = "apply" | "visit" | "chat";
 
-export function InquiryPanel({ propertyId, available }: { propertyId: string; available: boolean }) {
+export function InquiryPanel({ propertyId, available, loggedIn = false }: { propertyId: string; available: boolean; loggedIn?: boolean }) {
   const [mode, setMode] = useState<Mode>(available ? "apply" : "visit");
 
   return (
@@ -30,7 +30,7 @@ export function InquiryPanel({ propertyId, available }: { propertyId: string; av
         ) : mode === "visit" ? (
           <VisitForm propertyId={propertyId} />
         ) : (
-          <OwnerChat propertyId={propertyId} />
+          <OwnerChat propertyId={propertyId} loggedIn={loggedIn} />
         )}
       </div>
     </div>

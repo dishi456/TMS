@@ -38,7 +38,7 @@ export default async function TenantReceiptPage({ params }: { params: Promise<{ 
         <div className="flex items-start justify-between border-b border-slate-200 pb-4">
           <div>
             <h1 className="text-xl font-semibold text-slate-900">Payment Receipt</h1>
-            <p className="text-sm text-slate-500">Tenant Management System</p>
+            <p className="text-sm text-slate-500">Lease Lord</p>
           </div>
           <div className="text-right text-sm">
             <p className="text-slate-400">Receipt No.</p>

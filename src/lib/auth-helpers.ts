@@ -29,3 +29,11 @@ export async function requireTenant(): Promise<Session> {
   }
   return session;
 }
+
+export async function requireUser(): Promise<Session> {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "USER") {
+    throw new Error("Unauthorized: account access required.");
+  }
+  return session;
+}

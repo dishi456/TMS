@@ -7,7 +7,7 @@ import { ReviewsExplorer, type ReviewItem } from "./ReviewsExplorer";
 
 export const metadata: Metadata = {
   title: "Reviews",
-  description: "Public landlord and tenant reviews on the Tenant Management System.",
+  description: "Public landlord and tenant reviews on Lease Lord.",
 };
 export const dynamic = "force-dynamic";
 

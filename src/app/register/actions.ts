@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { audit } from "@/lib/audit";
-import { sendEmail, emailLayout } from "@/lib/email";
+import { sendEmail, emailLayout, APP_NAME } from "@/lib/email";
+import { consumeVerifyToken } from "@/lib/otp";
 
 export type RegisterState = { error?: string } | undefined;
 
@@ -14,8 +15,10 @@ const schema = z.object({
   fullName: z.string().min(2, "Enter your full name."),
   email: z.string().email("Enter a valid email."),
   password: z.string().min(8, "Password must be at least 8 characters."),
-  role: z.enum(["LANDLORD", "TENANT"]),
-  landlordId: z.string().optional(),
+  // USER = a public seeker (browse/save/chat); LANDLORD = lists properties.
+  // Tenants are created by a landlord (add or convert), not via self-signup.
+  role: z.enum(["LANDLORD", "USER"]),
+  otpToken: z.string().min(1, "Please verify your email."),
 });
 
 export async function register(_prev: RegisterState, formData: FormData): Promise<RegisterState> {
@@ -23,14 +26,12 @@ export async function register(_prev: RegisterState, formData: FormData): Promis
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
 
-  // A tenant must choose the landlord who will approve & manage them.
-  if (d.role === "TENANT") {
-    if (!d.landlordId) return { error: "Please select your landlord." };
-    const ll = await prisma.user.findFirst({
-      where: { id: d.landlordId, role: "LANDLORD", status: "ACTIVE" },
-    });
-    if (!ll) return { error: "Selected landlord is not available." };
-  }
+  // Email must have been verified via OTP (token burned here so it's single-use).
+  const verified = await consumeVerifyToken(d.email, d.otpToken, "register");
+  if (!verified) return { error: "Your email verification expired. Please verify again." };
+
+  // Seekers are active immediately; landlords await admin approval.
+  const isUser = d.role === "USER";
 
   try {
     const user = await prisma.user.create({
@@ -39,23 +40,26 @@ export async function register(_prev: RegisterState, formData: FormData): Promis
         email: d.email.toLowerCase(),
         passwordHash: await bcrypt.hash(d.password, 10),
         role: d.role,
-        status: "PENDING", // awaiting approval (admin for landlords, landlord for tenants)
-        landlordId: d.role === "TENANT" ? d.landlordId : null,
+        status: isUser ? "ACTIVE" : "PENDING",
+        landlordId: null,
       },
     });
     await audit({
       actorId: user.id,
-      action: d.role === "LANDLORD" ? "register.landlord" : "register.tenant",
+      action: isUser ? "register.user" : "register.landlord",
       entity: "User",
       entityId: user.id,
     });
     await sendEmail({
       to: user.email,
-      subject: "Welcome to Tenant Management System",
+      subject: `Welcome to ${APP_NAME}`,
       html: emailLayout(
         `Welcome, ${user.fullName}`,
-        `<p>Your ${d.role === "LANDLORD" ? "landlord" : "tenant"} account has been created and is awaiting approval.</p>
-         <p>You can sign in now — full access unlocks once you're approved.</p>`,
+        isUser
+          ? `<p>Your account is ready. Browse properties, save your favourites and chat with owners directly.</p>
+             <p>When you rent a place, your landlord can upgrade you to a tenant account with rent, maintenance and more.</p>`
+          : `<p>Your landlord account has been created and is awaiting approval.</p>
+             <p>You can sign in now — full access unlocks once you're approved.</p>`,
       ),
     });
   } catch (e) {
@@ -65,5 +69,5 @@ export async function register(_prev: RegisterState, formData: FormData): Promis
     throw e;
   }
 
-  redirect("/login?registered=1");
+  redirect(isUser ? "/login?registered=1&seeker=1" : "/login?registered=1");
 }

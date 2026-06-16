@@ -26,28 +26,28 @@ function reminderCopy(m: Milestone, amount: number, property: string, due: Date)
         title: "Rent due in 7 days",
         body: `Heads up — rent of ${amt} for ${property} is due on ${dueStr} (in 7 days).`,
         subject: `Reminder: rent for ${property} is due in 7 days`,
-        sms: `TMS: Rent ${amt} for ${property} is due ${dueStr} (in 7 days). Pay early to avoid late fees.`,
+        sms: `Lease Lord: Rent ${amt} for ${property} is due ${dueStr} (in 7 days). Pay early to avoid late fees.`,
       };
     case "T-3":
       return {
         title: "Rent due in 3 days",
         body: `Reminder — rent of ${amt} for ${property} is due on ${dueStr} (in 3 days).`,
         subject: `Reminder: rent for ${property} is due in 3 days`,
-        sms: `TMS: Rent ${amt} for ${property} is due in 3 days (${dueStr}). Please pay on time.`,
+        sms: `Lease Lord: Rent ${amt} for ${property} is due in 3 days (${dueStr}). Please pay on time.`,
       };
     case "DUE":
       return {
         title: "Rent is due today",
         body: `Your rent of ${amt} for ${property} is due today (${dueStr}).`,
         subject: `Your rent for ${property} is due today`,
-        sms: `TMS: Rent ${amt} for ${property} is due TODAY (${dueStr}). Please pay now.`,
+        sms: `Lease Lord: Rent ${amt} for ${property} is due TODAY (${dueStr}). Please pay now.`,
       };
     case "OVERDUE":
       return {
         title: "Overdue rent notice",
         body: `Your rent of ${amt} for ${property} is overdue (was due ${dueStr}). Please pay immediately.`,
         subject: `Overdue: rent for ${property}`,
-        sms: `TMS: Rent ${amt} for ${property} is OVERDUE (due ${dueStr}). Please pay immediately.`,
+        sms: `Lease Lord: Rent ${amt} for ${property} is OVERDUE (due ${dueStr}). Please pay immediately.`,
       };
   }
 }

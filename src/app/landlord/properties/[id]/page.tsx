@@ -55,7 +55,10 @@ export default async function LandlordPropertyDetail({
       {sp.error === "toobig" && <Banner tone="amber">File too large (max 8 MB).</Banner>}
 
       <div>
-        <h1 className="text-lg font-semibold text-slate-800">{property.name}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-lg font-semibold text-slate-800">{property.name}</h1>
+          <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-600">ID: {property.ref ?? "—"}</span>
+        </div>
         <p className="text-sm text-slate-500">{property.address}</p>
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
           <Badge tone="slate">{property.type.charAt(0) + property.type.slice(1).toLowerCase()}</Badge>

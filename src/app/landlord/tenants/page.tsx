@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Badge, btn } from "@/components/ui";
 import { formatNumber } from "@/lib/format";
 import { approveTenant, setTenantStatus } from "./actions";
+import { ConvertUserForm } from "./ConvertUserForm";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,9 @@ export default async function LandlordTenantsPage({
 
       {sp.approved && <Banner>Tenant approved.</Banner>}
       {sp.added && <Banner>Tenant added.</Banner>}
+
+      <ConvertUserForm />
+
       {pending.length > 0 && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
           {pending.length} tenant{pending.length > 1 ? "s" : ""} awaiting your approval.

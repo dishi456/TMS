@@ -40,7 +40,7 @@ export function AdminShell({
   const mobileNav = NAV.filter((n) => n.mobile);
 
   return (
-    <div className="min-h-dvh bg-slate-50 text-slate-800">
+    <div className="min-h-dvh bg-slate-50 font-sans text-slate-800">
       {/* ===== Desktop sidebar ===== */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
         <div className="flex h-16 items-center border-b border-slate-200 px-4">

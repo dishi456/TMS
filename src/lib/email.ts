@@ -1,26 +1,60 @@
+import nodemailer, { type Transporter } from "nodemailer";
 import { Resend } from "resend";
 
-const apiKey = process.env.RESEND_API_KEY;
-const from = process.env.EMAIL_FROM || "TMS <onboarding@resend.dev>";
-const resend = apiKey ? new Resend(apiKey) : null;
+export const APP_NAME = "Lease Lord";
 
-export function emailConfigured(): boolean {
-  return !!apiKey;
+// ---- Transport selection -------------------------------------------------
+// Preferred: Gmail SMTP via an App Password (set GMAIL_USER + GMAIL_APP_PASSWORD).
+// Fallback: Resend (RESEND_API_KEY). Last resort (dev): log to the console.
+
+const gmailUser = process.env.GMAIL_USER;
+const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, ""); // App Passwords are shown with spaces
+
+let gmailTransport: Transporter | null = null;
+if (gmailUser && gmailPass) {
+  gmailTransport = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: gmailUser, pass: gmailPass },
+  });
 }
 
-// Send an email via Resend. Graceful fallback: if no API key is configured,
-// the message is logged to the server console so flows (e.g. password reset)
-// still work in development.
+const resendKey = process.env.RESEND_API_KEY;
+const resend = resendKey ? new Resend(resendKey) : null;
+
+const from =
+  process.env.EMAIL_FROM ||
+  (gmailUser ? `${APP_NAME} <${gmailUser}>` : `${APP_NAME} <onboarding@resend.dev>`);
+
+export function emailConfigured(): boolean {
+  return !!gmailTransport || !!resend;
+}
+
+// Send an email. Tries Gmail SMTP first, then Resend, then logs to the console
+// so flows still work in development without any credentials configured.
 export async function sendEmail(opts: { to: string; subject: string; html: string }): Promise<void> {
-  if (!resend) {
-    console.log(`\n[email:dev] →  ${opts.to}\n[subject] ${opts.subject}\n${opts.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}\n`);
-    return;
+  if (gmailTransport) {
+    try {
+      await gmailTransport.sendMail({ from, to: opts.to, subject: opts.subject, html: opts.html });
+      return;
+    } catch (e) {
+      console.error("gmail send failed:", e);
+      // fall through to other transports
+    }
   }
-  try {
-    await resend.emails.send({ from, to: opts.to, subject: opts.subject, html: opts.html });
-  } catch (e) {
-    console.error("email send failed:", e);
+  if (resend) {
+    try {
+      await resend.emails.send({ from, to: opts.to, subject: opts.subject, html: opts.html });
+      return;
+    } catch (e) {
+      console.error("resend send failed:", e);
+    }
   }
+  console.log(
+    `\n[email:dev] →  ${opts.to}\n[subject] ${opts.subject}\n${opts.html
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()}\n`,
+  );
 }
 
 // Minimal branded wrapper for email bodies.
@@ -29,6 +63,6 @@ export function emailLayout(title: string, bodyHtml: string): string {
     <h2 style="color:#2563eb">${title}</h2>
     ${bodyHtml}
     <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0" />
-    <p style="font-size:12px;color:#64748b">Tenant Management System</p>
+    <p style="font-size:12px;color:#64748b">${APP_NAME}</p>
   </div>`;
 }

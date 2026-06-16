@@ -6,6 +6,7 @@ import path from "path";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { generatePropertyRef } from "@/lib/property-ref";
 import { requireLandlord } from "@/lib/auth-helpers";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notify";
@@ -98,7 +99,7 @@ export async function createProperty(_prev: FormState, formData: FormData): Prom
 
   // Landlord-created properties await Master Admin approval.
   const created = await prisma.property.create({
-    data: { ...toData(parsed.data), landlordId: session.user.id, approved: false },
+    data: { ...toData(parsed.data), ref: await generatePropertyRef(), landlordId: session.user.id, approved: false },
   });
   await audit({ actorId: session.user.id, action: "property.create", entity: "Property", entityId: created.id });
 

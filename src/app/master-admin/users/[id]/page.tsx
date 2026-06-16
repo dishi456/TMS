@@ -206,7 +206,7 @@ export default async function UserDetailPage({
                 fullName: user.fullName,
                 email: user.email,
                 phone: user.phone ?? undefined,
-                role: isTenant ? "TENANT" : "LANDLORD",
+                role: user.role as "LANDLORD" | "TENANT" | "USER",
                 governmentId: user.governmentId ?? undefined,
                 emergencyContact: user.emergencyContact ?? undefined,
               }}

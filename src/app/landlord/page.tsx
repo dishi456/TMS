@@ -27,6 +27,9 @@ export default async function LandlordHome() {
     openMaintenance,
     openComplaints,
     avgRating,
+    pendingApps,
+    pendingVisits,
+    newEnquiries,
   ] = await Promise.all([
     prisma.user.findUnique({ where: { id: landlordId }, select: { verified: true } }),
     prisma.property.count({ where: { landlordId } }),
@@ -46,10 +49,14 @@ export default async function LandlordHome() {
     }),
     prisma.complaint.count({ where: { property: { landlordId }, status: { in: ["OPEN", "REOPENED", "RESPONDED"] } } }),
     prisma.rating.aggregate({ _avg: { stars: true }, where: { rateeId: landlordId, status: "VISIBLE" } }),
+    prisma.application.count({ where: { status: "PENDING", property: { landlordId } } }),
+    prisma.visit.count({ where: { status: "PENDING", property: { landlordId } } }),
+    prisma.inquiryMessage.count({ where: { fromGuest: true, readByLandlord: false, inquiry: { landlordId } } }),
   ]);
 
   const occupiedCount = occupiedProps.length;
   const vacantCount = Math.max(0, totalProperties - occupiedCount);
+  const totalRequests = pendingApps + pendingVisits + newEnquiries;
 
   const stats = [
     { label: "Total Properties", value: formatNumber(totalProperties), href: "/landlord/properties" },
@@ -73,6 +80,27 @@ export default async function LandlordHome() {
           ⚠ Your account isn&apos;t verified yet. Upload your Aadhaar &amp; property photo →
         </Link>
       )}
+
+      {/* Incoming requests summary */}
+      <Link
+        href="/landlord/requests"
+        className={`flex items-center justify-between gap-3 rounded-2xl border p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
+          totalRequests > 0 ? "border-blue-200 bg-gradient-to-r from-blue-50 to-sky-50" : "border-slate-200 bg-white"
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-xl text-white">📥</span>
+          <div>
+            <p className="text-sm font-semibold text-slate-800">
+              {totalRequests > 0 ? `${totalRequests} request${totalRequests === 1 ? "" : "s"} need your attention` : "Requests"}
+            </p>
+            <p className="text-xs text-slate-500">
+              {formatNumber(pendingApps)} application{pendingApps === 1 ? "" : "s"} · {formatNumber(pendingVisits)} visit{pendingVisits === 1 ? "" : "s"} · {formatNumber(newEnquiries)} new enquir{newEnquiries === 1 ? "y" : "ies"}
+            </p>
+          </div>
+        </div>
+        <span className="shrink-0 text-sm font-medium text-blue-600">Open inbox →</span>
+      </Link>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         {stats.map((s) => (

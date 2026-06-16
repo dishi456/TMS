@@ -10,7 +10,7 @@ import { requireLandlord } from "@/lib/auth-helpers";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notify";
 
-export type FormState = { error?: string } | undefined;
+export type FormState = { error?: string; success?: string } | undefined;
 
 // Confirm a tenant belongs to the current landlord before acting on them.
 async function ownTenant(landlordId: string, tenantId: string) {
@@ -87,4 +87,38 @@ export async function addTenant(_prev: FormState, formData: FormData): Promise<F
 
   revalidatePath("/landlord/tenants");
   redirect("/landlord/tenants?added=1");
+}
+
+const convertSchema = z.object({ email: z.string().email("Enter the user's email.") });
+
+// Convert an existing public USER (seeker) into this landlord's tenant.
+// Their account, password and saved data stay the same — only the role and
+// managing landlord change, and they gain the tenant portal on next sign-in.
+export async function convertUserToTenant(_prev: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireLandlord();
+  const parsed = convertSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const email = parsed.data.email.toLowerCase();
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) return { error: "No account found with that email. Ask them to sign up first." };
+  if (user.role === "TENANT") {
+    return { error: user.landlordId === session.user.id ? "They're already your tenant." : "They're already a tenant of another landlord." };
+  }
+  if (user.role !== "USER") return { error: "Only a standard user account can be converted to a tenant." };
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { role: "TENANT", landlordId: session.user.id, status: "ACTIVE" },
+  });
+  await audit({ actorId: session.user.id, action: "tenant.convert", entity: "User", entityId: user.id });
+  await notify(user.id, {
+    type: "account",
+    title: "You're now a tenant",
+    body: `${session.user.name ?? "Your landlord"} added you as their tenant. Sign in again to open your tenant portal.`,
+    link: "/tenant",
+  });
+
+  revalidatePath("/landlord/tenants");
+  return { success: `${user.fullName} is now your tenant.` };
 }

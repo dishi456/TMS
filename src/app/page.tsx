@@ -8,7 +8,7 @@ import { PurchaseForm } from "./_landing/PurchaseForm";
 export const metadata: Metadata = {
   title: "Modern Tenant & Property Management",
   description:
-    "TMS unifies landlords, tenants and administrators on one platform — properties, leases, online rent, maintenance, complaints and two-way reviews.",
+    "Lease Lord unifies landlords, tenants and administrators on one platform — properties, leases, online rent, maintenance, complaints and two-way reviews.",
 };
 
 // ---------------------------------------------------------------------------
@@ -184,7 +184,7 @@ export default function Landing() {
             </h1>
 
             <p className="animate-fade-up mt-5 max-w-xl text-lg text-slate-600 [--delay:160ms]">
-              TMS brings landlords, tenants and administrators onto a single,
+              Lease Lord brings landlords, tenants and administrators onto a single,
               secure platform — properties, leases, online rent, maintenance,
               complaints and trust-building two-way reviews.
             </p>
@@ -194,7 +194,7 @@ export default function Landing() {
                 href="#buy"
                 className="shine rounded-full bg-blue-600 px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-600/30 transition-all hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-xl hover:shadow-blue-600/40"
               >
-                Buy TMS now
+                Buy Lease Lord now
               </a>
               <Link
                 href="/listings"
@@ -236,7 +236,7 @@ export default function Landing() {
                     <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
                     <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
                   </div>
-                  <span className="text-xs font-medium text-slate-400">TMS · Dashboard</span>
+                  <span className="text-xs font-medium text-slate-400">Lease Lord · Dashboard</span>
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-3">
@@ -583,7 +583,7 @@ export default function Landing() {
           <Reveal>
             <p className="text-sm font-semibold uppercase tracking-wider text-blue-600">Get started</p>
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-              Buy TMS for your properties
+              Buy Lease Lord for your properties
             </h2>
             <p className="mt-4 text-slate-600">
               Tell us a little about your portfolio and we&apos;ll set up your
@@ -635,7 +635,7 @@ export default function Landing() {
             <Link href="/login" className="hover:text-slate-900">Sign in</Link>
           </nav>
           <p className="text-xs text-slate-400">
-            © {new Date().getFullYear()} Tenant Management System
+            © {new Date().getFullYear()} Lease Lord
           </p>
         </div>
       </footer>

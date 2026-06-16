@@ -9,10 +9,12 @@ export type UserDefaults = {
   fullName?: string;
   email?: string;
   phone?: string;
-  role?: "LANDLORD" | "TENANT";
+  role?: "LANDLORD" | "TENANT" | "USER";
   governmentId?: string;
   emergencyContact?: string;
 };
+
+const ROLE_LABEL: Record<string, string> = { LANDLORD: "Landlord", TENANT: "Tenant", USER: "Seeker" };
 
 export function UserForm({
   mode,
@@ -23,7 +25,7 @@ export function UserForm({
 }) {
   const action = mode === "create" ? createUser : updateUser;
   const [state, formAction, pending] = useActionState<FormState, FormData>(action, undefined);
-  const [role, setRole] = useState<"LANDLORD" | "TENANT">(defaults.role ?? "LANDLORD");
+  const [role, setRole] = useState<"LANDLORD" | "TENANT" | "USER">(defaults.role ?? "LANDLORD");
 
   return (
     <form action={formAction} className="space-y-4">
@@ -61,7 +63,7 @@ export function UserForm({
             <>
               <input type="hidden" name="role" value={defaults.role} />
               <input
-                value={defaults.role === "TENANT" ? "Tenant" : "Landlord"}
+                value={ROLE_LABEL[defaults.role ?? "LANDLORD"] ?? defaults.role}
                 disabled
                 className={`${inputClass} bg-slate-50 text-slate-500`}
               />

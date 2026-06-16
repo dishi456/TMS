@@ -20,7 +20,7 @@ export default async function TenantLeasePage() {
     include: {
       property: {
         select: {
-          name: true, address: true, noticePeriodDays: true,
+          ref: true, name: true, address: true, noticePeriodDays: true,
           rooms: true, bathrooms: true, balconies: true, floor: true, totalFloors: true,
           areaSqft: true, furnishing: true, hasLobby: true, hasParking: true, hasLift: true,
           powerBackup: true, amenities: true,
@@ -45,7 +45,10 @@ export default async function TenantLeasePage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-lg font-semibold text-slate-800">Lease Information</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-lg font-semibold text-slate-800">Lease Information</h1>
+          <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold text-slate-600">Property ID: {current.property.ref ?? "—"}</span>
+        </div>
         <p className="text-sm text-slate-500">{current.property.name} · {current.property.address}</p>
         <div className="mt-1"><LeaseStatusBadge status={current.status} /></div>
       </div>

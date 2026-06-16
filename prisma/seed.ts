@@ -121,6 +121,8 @@ async function main() {
       { id: "u-t4", email: "daniel.tenant@tms.local", passwordHash: pw, role: Role.TENANT, status: "ACTIVE", verified: false, fullName: "Daniel Martinez", phone: "+1 646 555 0204", governmentId: "GID-MART-5562", emergencyContact: "Ana Martinez +1 646 555 0304", landlordId: "u-l2" },
       { id: "u-t5", email: "sophia.tenant@tms.local", passwordHash: pw, role: Role.TENANT, status: "PENDING", verified: false, fullName: "Sophia Garcia", phone: "+1 646 555 0205", governmentId: "GID-GARCIA-9034", landlordId: "u-l1" },
       { id: "u-t6", email: "william.tenant@tms.local", passwordHash: pw, role: Role.TENANT, status: "ACTIVE", verified: true, fullName: "William Lee", phone: "+1 646 555 0206", governmentId: "GID-LEE-4408", emergencyContact: "Grace Lee +1 646 555 0306", landlordId: "u-l1" },
+      // Public "seeker" account — browses & chats; a landlord can convert to a tenant.
+      { id: "u-user1", email: "seeker@tms.local", passwordHash: pw, role: Role.USER, status: "ACTIVE", fullName: "Alex Carter", phone: "+1 312 555 0440" },
     ],
   });
 
@@ -139,6 +141,12 @@ async function main() {
       { id: "p10", landlordId: "u-l1", name: "Bayview Residency", type: "APARTMENT", address: "14 Harbor Dr, San Diego, CA", description: "Spacious 3BHK with a sea-facing balcony.", rooms: 3, bathrooms: 2, balconies: 2, floor: 9, totalFloors: 18, areaSqft: 1500, furnishing: "SEMI_FURNISHED", hasLobby: true, hasParking: true, hasLift: true, powerBackup: true, numberOfUnits: 4, rentAmount: 3200, securityDeposit: 6400, amenities: ["Sea View", "Gym", "Pool"], availability: "AVAILABLE", verified: true, approved: true },
     ],
   });
+
+  // Allocate public 6-digit reference codes (deterministic for the demo).
+  const refMap: Record<string, string> = { p1: "204101", p2: "204102", p3: "204103", p4: "204104", p5: "204105", p6: "204106", p7: "204107", p8: "204108", p9: "204109", p10: "204110" };
+  for (const [pid, ref] of Object.entries(refMap)) {
+    await prisma.property.update({ where: { id: pid }, data: { ref } });
+  }
 
   // ---- Leases ----
   await prisma.lease.createMany({
@@ -238,7 +246,7 @@ async function main() {
       { userId: "u-t1", type: "rent_reminder", title: "Rent payment reminder", body: "Your rent of $2,500 for Green Meadows Apartment is due on the 5th.", link: "/tenant/payments", read: false },
       { userId: "u-t1", type: "maintenance", title: "Maintenance update", body: "Your request 'AC not cooling' is now In Progress.", link: "/tenant/maintenance", read: false },
       { userId: "u-t1", type: "complaint", title: "Landlord responded to your complaint", body: "There's a new reply on 'Noisy neighbours'.", link: "/tenant/complaints", read: true },
-      { userId: "u-t1", type: "welcome", title: "Welcome to TMS", body: "Your account is active. Explore your portal.", read: true },
+      { userId: "u-t1", type: "welcome", title: "Welcome to Lease Lord", body: "Your account is active. Explore your portal.", read: true },
       { userId: "u-t2", type: "rent_reminder", title: "Rent payment reminder", body: "An invoice for Lakeview Studio is overdue.", link: "/tenant/payments", read: false },
       { userId: "u-t3", type: "complaint", title: "Complaint resolved", body: "Your complaint 'Irregular garbage collection' was resolved.", link: "/tenant/complaints", read: false },
       { userId: "u-t4", type: "rent_reminder", title: "Rent payment reminder", body: "An invoice for Downtown Loft is overdue.", link: "/tenant/payments", read: false },

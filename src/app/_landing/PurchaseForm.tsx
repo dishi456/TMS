@@ -50,7 +50,7 @@ export function PurchaseForm() {
         </div>
         <h3 className="text-xl font-bold text-slate-900">Request received!</h3>
         <p className="mt-2 text-sm text-slate-600">
-          Thanks for your interest in TMS. Our team will reach out within one
+          Thanks for your interest in Lease Lord. Our team will reach out within one
           business day to set up your workspace and walk you through onboarding.
         </p>
         <a

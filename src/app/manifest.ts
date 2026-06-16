@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Tenant Management System",
-    short_name: "TMS",
+    name: "Lease Lord",
+    short_name: "Lease Lord",
     description:
       "Manage properties, leases, rent, maintenance and complaints — for admins, landlords and tenants.",
     start_url: "/",

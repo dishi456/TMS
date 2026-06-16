@@ -18,6 +18,7 @@ enum Role {
   MASTER_ADMIN
   LANDLORD
   TENANT
+  USER // public seeker: browses, saves, chats; a landlord can later convert to TENANT
 }
 
 enum UserStatus {
@@ -166,6 +167,7 @@ model User {
   resetTokens      PasswordResetToken[]
   sentMessages     Message[]            @relation("SentMessages")
   receivedMessages Message[]            @relation("ReceivedMessages")
+  inquiries        PropertyInquiry[]    @relation("UserInquiries")
 
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
@@ -193,6 +195,7 @@ enum ListedBy {
 
 model Property {
   id               String             @id @default(cuid())
+  ref              String?            @unique // public 6-digit reference code (e.g. 204517)
   landlord         User               @relation("LandlordProperties", fields: [landlordId], references: [id])
   landlordId       String
 
@@ -263,12 +266,15 @@ model PropertyInquiry {
   guestName  String
   guestPhone String
   guestEmail String?
+  user       User?            @relation("UserInquiries", fields: [userId], references: [id])
+  userId     String? // set when a signed-in USER (not an anonymous guest) starts the chat
   messages   InquiryMessage[]
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
 
   @@index([landlordId])
   @@index([propertyId])
+  @@index([userId])
 }
 
 model InquiryMessage {
@@ -579,6 +585,23 @@ model PasswordResetToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+// One-time email verification code (e.g. a visitor proving their email before
+// they can start a chat with a property owner). Short-lived; consumed on use.
+model EmailOtp {
+  id         String    @id @default(cuid())
+  email      String
+  codeHash   String // sha-256 of the 6-digit code (never store the raw code)
+  purpose    String    @default("chat") // what the code unlocks
+  attempts   Int       @default(0) // wrong-code guesses, capped to stop brute force
+  verified   Boolean   @default(false) // set once the correct code is entered
+  verifyToken String?  @unique // issued on success; the next step presents this
+  expiresAt  DateTime
+  consumedAt DateTime? // set when the verifyToken is finally redeemed
+  createdAt  DateTime  @default(now())
+
+  @@index([email])
 }
 
 enum ApplicationStatus {

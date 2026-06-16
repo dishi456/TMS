@@ -10,6 +10,7 @@ type NavItem = { href: string; label: string; icon: keyof typeof icons };
 
 const NAV: NavItem[] = [
   { href: "/landlord", label: "Dashboard", icon: "grid" },
+  { href: "/landlord/requests", label: "Requests", icon: "inbox" },
   { href: "/landlord/properties", label: "Properties", icon: "building" },
   { href: "/landlord/tenants", label: "Tenants", icon: "users" },
   { href: "/landlord/applications", label: "Applications", icon: "inbox" },
@@ -35,19 +36,21 @@ export function LandlordShell({
   verified,
   unread = 0,
   chatUnread = 0,
+  requestsPending = 0,
   children,
 }: {
   userName: string;
   verified: boolean;
   unread?: number;
   chatUnread?: number;
+  requestsPending?: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const current = NAV.find((n) => isActive(pathname, n.href));
 
   return (
-    <div className="min-h-dvh bg-slate-50 text-slate-800">
+    <div className="min-h-dvh bg-slate-50 font-sans text-slate-800">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
         <div className="flex h-16 items-center border-b border-slate-200 px-4">
@@ -74,6 +77,9 @@ export function LandlordShell({
                 )}
                 {item.href === "/landlord/inquiries" && chatUnread > 0 && (
                   <span className="ml-auto rounded-full bg-red-500 px-1.5 text-xs font-semibold text-white">{chatUnread}</span>
+                )}
+                {item.href === "/landlord/requests" && requestsPending > 0 && (
+                  <span className="ml-auto rounded-full bg-red-500 px-1.5 text-xs font-semibold text-white">{requestsPending}</span>
                 )}
               </Link>
             );

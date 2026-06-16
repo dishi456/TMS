@@ -23,7 +23,7 @@ export async function requestReset(_prev: ForgotState, formData: FormData): Prom
     const link = `${appUrl}/reset-password?token=${raw}`;
     await sendEmail({
       to: email,
-      subject: "Reset your TMS password",
+      subject: "Reset your Lease Lord password",
       html: emailLayout(
         "Reset your password",
         `<p>We received a request to reset your password. This link expires in 1 hour.</p>

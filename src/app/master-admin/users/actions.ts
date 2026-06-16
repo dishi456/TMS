@@ -16,7 +16,7 @@ const baseSchema = z.object({
   fullName: z.string().min(2, "Name is too short."),
   email: z.string().email("Enter a valid email."),
   phone: z.string().trim().optional(),
-  role: z.enum(["LANDLORD", "TENANT"]),
+  role: z.enum(["LANDLORD", "TENANT", "USER"]),
   governmentId: z.string().trim().optional(),
   emergencyContact: z.string().trim().optional(),
 });
