@@ -12,13 +12,13 @@ import { RazorpayButton } from "./RazorpayButton";
 export const metadata: Metadata = { title: "Pay Rent" };
 export const dynamic = "force-dynamic";
 
-const METHODS = ["UPI", "DEBIT_CARD", "CREDIT_CARD", "NET_BANKING"];
+const METHODS = ["UPI", "DEBIT_CARD", "CREDIT_CARD", "NET_BANKING", "CASH"];
 const cap = (s: string) => s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, " ");
 
 export default async function TenantPaymentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ paid?: string; error?: string }>;
+  searchParams: Promise<{ paid?: string; error?: string; cash?: string }>;
 }) {
   const sp = await searchParams;
   const session = await auth();
@@ -50,6 +50,8 @@ export default async function TenantPaymentsPage({
         </div>
       )}
       {sp.error === "invalid" && <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">That invoice can&apos;t be paid.</div>}
+      {sp.cash === "1" && <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-700">Cash payment logged — waiting for your landlord to confirm they received it.</div>}
+      {sp.cash === "exists" && <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">You already have a cash payment awaiting confirmation for that invoice.</div>}
 
       <div className="grid grid-cols-2 gap-3">
         <StatCard tone="light" label="Pending Dues" value={formatMoney(dues._sum.amount)} />
@@ -72,9 +74,16 @@ export default async function TenantPaymentsPage({
                   </div>
                   {inv.status === "OVERDUE" && <Badge tone="red">Overdue</Badge>}
                 </div>
-                <div className="mt-3 border-t border-slate-100 pt-3">
+                <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
                   {razorpayConfigured() ? (
-                    <RazorpayButton invoiceId={inv.id} label={`Pay ${formatMoney(inv.amount)} online`} />
+                    <>
+                      <RazorpayButton invoiceId={inv.id} label={`Pay ${formatMoney(inv.amount)} online`} />
+                      <form action={payInvoice}>
+                        <input type="hidden" name="invoiceId" value={inv.id} />
+                        <input type="hidden" name="method" value="CASH" />
+                        <button className={btn("secondary")}>💵 Mark as paid by cash</button>
+                      </form>
+                    </>
                   ) : (
                     <form action={payInvoice} className="flex flex-wrap items-center gap-2">
                       <input type="hidden" name="invoiceId" value={inv.id} />
@@ -84,6 +93,7 @@ export default async function TenantPaymentsPage({
                       <button className={btn("primary")}>Pay {formatMoney(inv.amount)}</button>
                     </form>
                   )}
+                  <p className="text-xs text-slate-400">Cash payments are confirmed by your landlord before they count as paid.</p>
                 </div>
               </Card>
             ))}

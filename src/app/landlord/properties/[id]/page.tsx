@@ -82,7 +82,7 @@ export default async function LandlordPropertyDetail({
 
       {/* Photos */}
       <div>
-        <h3 className="mb-2 text-sm font-semibold text-slate-700">Photos</h3>
+        <h3 className="mb-2 text-sm font-semibold text-slate-700">Photos <span className="font-normal text-slate-400">({property.documents.length}/10)</span></h3>
         <Card>
           {property.documents.length === 0 ? (
             <p className="text-sm text-slate-400">No photos yet.</p>
@@ -133,6 +133,14 @@ export default async function LandlordPropertyDetail({
                 hasParking: property.hasParking,
                 hasLift: property.hasLift,
                 powerBackup: property.powerBackup,
+                carpetAreaSqft: property.carpetAreaSqft != null ? String(property.carpetAreaSqft) : undefined,
+                parkingSpots: property.parkingSpots != null ? String(property.parkingSpots) : undefined,
+                maintenanceMonthly: property.maintenanceMonthly != null ? String(property.maintenanceMonthly) : undefined,
+                facing: property.facing ?? undefined,
+                listedBy: property.listedBy,
+                projectName: property.projectName ?? undefined,
+                bachelorsAllowed: property.bachelorsAllowed,
+                listedPublic: property.listedPublic,
                 amenities: property.amenities.join(", "),
                 availability: property.availability,
               }}

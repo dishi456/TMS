@@ -8,15 +8,20 @@ import { formatMoney, formatNumber } from "@/lib/format";
 import { UserForm } from "../UserForm";
 import { UserStatusBadge } from "../UserStatusBadge";
 import { setUserStatus, setUserVerified, deleteUser } from "../actions";
+import { adminUploadUserDoc, adminDeleteUserDoc } from "../doc-actions";
+import { ZoomImage } from "@/components/ZoomImage";
 
 export const dynamic = "force-dynamic";
 
 export default async function UserDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ uploaded?: string; error?: string }>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
 
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user || user.role === "MASTER_ADMIN") notFound();
@@ -119,6 +124,9 @@ export default async function UserDetailPage({
             <span className="ml-2"><Badge tone="amber">Awaiting approval</Badge></span>
           )}
         </h3>
+        {sp.uploaded && <Banner tone="green">Document uploaded.</Banner>}
+        {sp.error === "nofile" && <Banner tone="amber">Please choose a file.</Banner>}
+        {sp.error === "toobig" && <Banner tone="amber">File too large (max 8 MB).</Banner>}
         <Card>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -128,36 +136,61 @@ export default async function UserDetailPage({
               ) : (
                 <ul className="space-y-1 text-sm">
                   {aadhaarDocs.map((d) => (
-                    <li key={d.id}>
-                      <a href={`/api/files/${d.id}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-700">
-                        {d.label ?? "Document"}
-                      </a>
+                    <li key={d.id} className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        {d.contentType?.startsWith("image") && (
+                          <ZoomImage src={`/api/files/${d.id}`} alt={d.label ?? "ID document"} className="h-12 w-12 shrink-0 rounded border border-slate-200 object-cover" />
+                        )}
+                        <a href={`/api/files/${d.id}`} target="_blank" rel="noreferrer" className="truncate text-blue-600 hover:text-blue-700">
+                          {d.label ?? "Document"}
+                        </a>
+                      </div>
+                      <form action={adminDeleteUserDoc}>
+                        <input type="hidden" name="docId" value={d.id} />
+                        <ConfirmButton message="Delete this document?" className="text-xs text-red-500 hover:text-red-600">remove</ConfirmButton>
+                      </form>
                     </li>
                   ))}
                 </ul>
               )}
+              {/* Admin upload: ID */}
+              <form action={adminUploadUserDoc} className="mt-2 flex items-center gap-2">
+                <input type="hidden" name="userId" value={user.id} />
+                <input type="hidden" name="kind" value="AADHAAR" />
+                <input type="file" name="file" accept="image/*,application/pdf" required className="block w-full text-xs text-slate-500 file:mr-2 file:rounded-md file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-xs file:font-medium file:text-slate-700" />
+                <button className={btn("secondary", "px-2.5 py-1.5")}>Upload</button>
+              </form>
             </div>
             <div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">Property photos</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">Photos</p>
               {photoDocs.length === 0 ? (
                 <p className="text-sm text-slate-400">Not submitted.</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {photoDocs.map((d) => (
-                    <a key={d.id} href={`/api/files/${d.id}`} target="_blank" rel="noreferrer">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={`/api/files/${d.id}`} alt={d.label ?? "Photo"} className="h-16 w-16 rounded-md border border-slate-200 object-cover" />
-                    </a>
+                    <div key={d.id} className="group relative">
+                      <ZoomImage src={`/api/files/${d.id}`} alt={d.label ?? "Photo"} className="h-16 w-16 rounded-md border border-slate-200 object-cover" />
+                      <form action={adminDeleteUserDoc} className="absolute -right-1 -top-1 opacity-0 group-hover:opacity-100">
+                        <input type="hidden" name="docId" value={d.id} />
+                        <ConfirmButton message="Delete this photo?" className="rounded-full bg-white px-1.5 text-xs text-red-600 shadow">✕</ConfirmButton>
+                      </form>
+                    </div>
                   ))}
                 </div>
               )}
+              {/* Admin upload: photo */}
+              <form action={adminUploadUserDoc} className="mt-2 flex items-center gap-2">
+                <input type="hidden" name="userId" value={user.id} />
+                <input type="hidden" name="kind" value="PHOTO" />
+                <input type="file" name="file" accept="image/*" required className="block w-full text-xs text-slate-500 file:mr-2 file:rounded-md file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-xs file:font-medium file:text-slate-700" />
+                <button className={btn("secondary", "px-2.5 py-1.5")}>Upload</button>
+              </form>
             </div>
           </div>
-          {!user.verified && verificationDocs.length > 0 && (
-            <p className="mt-3 border-t border-slate-100 pt-3 text-sm text-slate-500">
-              Review the documents above, then use <strong>Approve &amp; verify</strong> at the top.
-            </p>
-          )}
+          <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-400">
+            As admin you can upload or remove a {isTenant ? "tenant" : "landlord"}&apos;s ID and photos on their behalf
+            {!user.verified ? ", then use Approve & verify above." : "."}
+          </p>
         </Card>
       </div>
 
@@ -215,6 +248,11 @@ export default async function UserDetailPage({
       </div>
     </div>
   );
+}
+
+function Banner({ tone, children }: { tone: "green" | "amber"; children: React.ReactNode }) {
+  const cls = tone === "green" ? "border-green-200 bg-green-50 text-green-700" : "border-amber-200 bg-amber-50 text-amber-800";
+  return <div className={`rounded-lg border px-4 py-2.5 text-sm ${cls}`}>{children}</div>;
 }
 
 async function landlordHistory(id: string) {

@@ -15,6 +15,7 @@ import {
 } from "../actions";
 import { ImageUploader } from "@/components/ImageUploader";
 import { PropertyFeatures } from "@/components/PropertyFeatures";
+import { ZoomImage } from "@/components/ZoomImage";
 
 export const dynamic = "force-dynamic";
 
@@ -127,7 +128,7 @@ export default async function PropertyDetailPage({
 
       {/* Photos */}
       <div>
-        <h3 className="mb-2 text-sm font-semibold text-slate-700">Photos</h3>
+        <h3 className="mb-2 text-sm font-semibold text-slate-700">Photos <span className="font-normal text-slate-400">({photos.length}/10)</span></h3>
         <Card>
           {photos.length === 0 ? (
             <p className="text-sm text-slate-400">No photos yet.</p>
@@ -135,8 +136,7 @@ export default async function PropertyDetailPage({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {photos.map((p) => (
                 <div key={p.id} className="group relative overflow-hidden rounded-lg border border-slate-200">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/api/files/${p.id}`} alt={p.label ?? "Property photo"} className="h-32 w-full object-cover" />
+                  <ZoomImage src={`/api/files/${p.id}`} alt={p.label ?? "Property photo"} className="h-32 w-full object-cover" />
                   <form action={deleteDocument} className="absolute right-1 top-1 opacity-0 group-hover:opacity-100">
                     <input type="hidden" name="docId" value={p.id} />
                     <ConfirmButton message="Delete this photo?" className="rounded bg-white/90 px-1.5 py-0.5 text-xs text-red-600 shadow">
@@ -183,6 +183,14 @@ export default async function PropertyDetailPage({
                 hasParking: property.hasParking,
                 hasLift: property.hasLift,
                 powerBackup: property.powerBackup,
+                carpetAreaSqft: property.carpetAreaSqft != null ? String(property.carpetAreaSqft) : undefined,
+                parkingSpots: property.parkingSpots != null ? String(property.parkingSpots) : undefined,
+                maintenanceMonthly: property.maintenanceMonthly != null ? String(property.maintenanceMonthly) : undefined,
+                facing: property.facing ?? undefined,
+                listedBy: property.listedBy,
+                projectName: property.projectName ?? undefined,
+                bachelorsAllowed: property.bachelorsAllowed,
+                listedPublic: property.listedPublic,
                 amenities: property.amenities.join(", "),
                 availability: property.availability,
               }}
@@ -219,12 +227,17 @@ export default async function PropertyDetailPage({
               {proofs.length === 0 ? (
                 <p className="text-sm text-slate-400">No ownership documents uploaded yet.</p>
               ) : (
-                <ul className="space-y-1.5 text-sm">
+                <ul className="space-y-2 text-sm">
                   {proofs.map((d) => (
                     <li key={d.id} className="flex items-center justify-between gap-2">
-                      <a href={`/api/files/${d.id}`} target="_blank" rel="noreferrer" className="truncate text-blue-600 hover:text-blue-700">
-                        {d.label ?? "Document"}
-                      </a>
+                      <div className="flex min-w-0 items-center gap-2">
+                        {d.contentType?.startsWith("image") && (
+                          <ZoomImage src={`/api/files/${d.id}`} alt={d.label ?? "Document"} className="h-12 w-12 shrink-0 rounded border border-slate-200 object-cover" />
+                        )}
+                        <a href={`/api/files/${d.id}`} target="_blank" rel="noreferrer" className="truncate text-blue-600 hover:text-blue-700">
+                          {d.label ?? "Document"}
+                        </a>
+                      </div>
                       <form action={deleteDocument}>
                         <input type="hidden" name="docId" value={d.id} />
                         <ConfirmButton message="Delete this document?" className="text-xs text-red-500 hover:text-red-600">

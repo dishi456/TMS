@@ -5,6 +5,7 @@ import { StatCard } from "@/components/StatCard";
 import { formatNumber } from "@/lib/format";
 import { timeAgo } from "@/lib/activity";
 import { runRemindersNow } from "./actions";
+import { TestReminderButton } from "./TestReminderButton";
 
 export const metadata: Metadata = { title: "Rent Automation" };
 export const dynamic = "force-dynamic";
@@ -76,6 +77,12 @@ export default async function AutomationPage({
               In production this runs automatically once a day via the scheduled cron. {monthInvoices} invoice(s) exist for{" "}
               {monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" })}.
             </p>
+
+            <div className="mt-4 border-t border-slate-100 pt-4">
+              <p className="mb-1 text-sm font-medium text-slate-700">Demo: rapid reminders</p>
+              <p className="mb-2 text-xs text-slate-400">Sends 3 reminder emails to tenants with open invoices, 10 seconds apart — handy to watch delivery live.</p>
+              <TestReminderButton />
+            </div>
           </Card>
         </div>
 

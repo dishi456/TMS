@@ -38,6 +38,11 @@ export async function POST(req: Request) {
       const where = role === "MASTER_ADMIN" ? { id: refId } : { id: refId, landlordId: userId };
       const property = await prisma.property.findFirst({ where, select: { id: true, landlordId: true } });
       if (!property) return json({ error: "Property not found" }, 403);
+      // Cap property galleries at 10 photos.
+      if (purpose === "property-photo") {
+        const photoCount = await prisma.document.count({ where: { propertyId: refId, type: "PHOTO" } });
+        if (photoCount >= 10) return json({ error: "Photo limit reached (max 10 per property). Delete one first." }, 400);
+      }
       type = purpose === "property-photo" ? "PHOTO" : "PROPERTY_PROOF";
       prefix = `properties/${refId}`;
       ownerId = property.landlordId;

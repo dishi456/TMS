@@ -11,37 +11,58 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function ListingsPage() {
+  // Show properties that are available now, OR occupied-but-on-notice (a tenant
+  // has given notice to vacate, so they'll free up soon).
   const properties = await prisma.property.findMany({
-    where: { approved: true },
+    where: {
+      approved: true,
+      listedPublic: true,
+      OR: [
+        { availability: "AVAILABLE" },
+        { leases: { some: { status: { in: ["ACTIVE", "RENEWED"] }, noticeGivenAt: { not: null } } } },
+      ],
+    },
     include: {
       documents: { where: { type: "PHOTO" }, take: 1, orderBy: { createdAt: "asc" } },
+      leases: {
+        where: { status: { in: ["ACTIVE", "RENEWED"] }, noticeGivenAt: { not: null } },
+        select: { noticeEffectiveDate: true, endDate: true },
+        orderBy: { noticeEffectiveDate: "asc" },
+        take: 1,
+      },
     },
     orderBy: [{ availability: "asc" }, { createdAt: "desc" }],
   });
 
   const availableCount = properties.filter((p) => p.availability === "AVAILABLE").length;
 
-  const listings: ListingItem[] = properties.map((p) => ({
-    id: p.id,
-    name: p.name,
-    address: p.address,
-    type: p.type,
-    rent: Number(p.rentAmount),
-    rooms: p.rooms,
-    bathrooms: p.bathrooms,
-    areaSqft: p.areaSqft,
-    furnishing: p.furnishing,
-    amenities: p.amenities,
-    hasLobby: p.hasLobby,
-    hasParking: p.hasParking,
-    hasLift: p.hasLift,
-    powerBackup: p.powerBackup,
-    available: p.availability === "AVAILABLE",
-    photoId: p.documents[0]?.id ?? null,
-  }));
+  const listings: ListingItem[] = properties.map((p) => {
+    const available = p.availability === "AVAILABLE";
+    const noticeLease = !available ? p.leases[0] : undefined;
+    const noticeDate = noticeLease?.noticeEffectiveDate ?? noticeLease?.endDate ?? null;
+    return {
+      id: p.id,
+      name: p.name,
+      address: p.address,
+      type: p.type,
+      rent: Number(p.rentAmount),
+      rooms: p.rooms,
+      bathrooms: p.bathrooms,
+      areaSqft: p.areaSqft,
+      furnishing: p.furnishing,
+      amenities: p.amenities,
+      hasLobby: p.hasLobby,
+      hasParking: p.hasParking,
+      hasLift: p.hasLift,
+      powerBackup: p.powerBackup,
+      available,
+      availableFrom: noticeDate ? noticeDate.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null,
+      photoId: p.documents[0]?.id ?? null,
+    };
+  });
 
   return (
-    <main className="min-h-dvh bg-slate-50">
+    <main className="min-h-dvh bg-gradient-to-b from-slate-50 via-white to-blue-50/50">
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link href="/"><Logo className="h-9" /></Link>

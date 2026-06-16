@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireLandlord } from "@/lib/auth-helpers";
 import { audit } from "@/lib/audit";
+import { notify } from "@/lib/notify";
 import { saveFile, removeFile } from "@/lib/storage";
 
 export type FormState = { error?: string; success?: string } | undefined;
@@ -40,6 +41,14 @@ const schema = z.object({
   hasParking: checkbox.default(false),
   hasLift: checkbox.default(false),
   powerBackup: checkbox.default(false),
+  carpetAreaSqft: optInt,
+  parkingSpots: optInt,
+  maintenanceMonthly: optInt,
+  facing: z.string().trim().optional(),
+  listedBy: z.enum(["OWNER", "DEALER", "BUILDER"]).default("OWNER"),
+  projectName: z.string().trim().optional(),
+  bachelorsAllowed: checkbox.default(true),
+  listedPublic: checkbox.default(true),
   amenities: z.string().trim().optional(),
   availability: z.enum(["AVAILABLE", "OCCUPIED", "UNAVAILABLE"]),
 });
@@ -65,6 +74,14 @@ function toData(d: z.infer<typeof schema>) {
     hasParking: d.hasParking,
     hasLift: d.hasLift,
     powerBackup: d.powerBackup,
+    carpetAreaSqft: d.carpetAreaSqft ?? null,
+    parkingSpots: d.parkingSpots ?? null,
+    maintenanceMonthly: d.maintenanceMonthly ?? null,
+    facing: d.facing && d.facing.length > 0 ? d.facing : null,
+    listedBy: d.listedBy,
+    projectName: d.projectName && d.projectName.length > 0 ? d.projectName : null,
+    bachelorsAllowed: d.bachelorsAllowed,
+    listedPublic: d.listedPublic,
     amenities: d.amenities ? d.amenities.split(",").map((a) => a.trim()).filter(Boolean) : [],
     availability: d.availability,
   };
@@ -84,6 +101,18 @@ export async function createProperty(_prev: FormState, formData: FormData): Prom
     data: { ...toData(parsed.data), landlordId: session.user.id, approved: false },
   });
   await audit({ actorId: session.user.id, action: "property.create", entity: "Property", entityId: created.id });
+
+  // Notify Master Admins to review & approve the new property before it goes live.
+  const admins = await prisma.user.findMany({ where: { role: "MASTER_ADMIN" }, select: { id: true } });
+  for (const a of admins) {
+    await notify(a.id, {
+      type: "property",
+      title: "New property pending approval",
+      body: `${session.user.name ?? "A landlord"} submitted “${created.name}” for review.`,
+      link: `/master-admin/properties/${created.id}`,
+    });
+  }
+
   revalidatePath("/landlord/properties");
   redirect("/landlord/properties?created=1");
 }

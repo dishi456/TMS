@@ -15,8 +15,9 @@ export async function payInvoice(formData: FormData) {
   const session = await requireTenant();
   const invoiceId = String(formData.get("invoiceId"));
   const method = String(formData.get("method"));
-  const allowed = ["UPI", "DEBIT_CARD", "CREDIT_CARD", "NET_BANKING"];
-  const payMethod = (allowed.includes(method) ? method : "UPI") as "UPI" | "DEBIT_CARD" | "CREDIT_CARD" | "NET_BANKING";
+  const allowed = ["UPI", "DEBIT_CARD", "CREDIT_CARD", "NET_BANKING", "CASH"];
+  const payMethod = (allowed.includes(method) ? method : "UPI") as
+    | "UPI" | "DEBIT_CARD" | "CREDIT_CARD" | "NET_BANKING" | "CASH";
 
   const invoice = await prisma.invoice.findFirst({
     where: { id: invoiceId, lease: { tenantId: session.user.id }, status: { in: ["PENDING", "OVERDUE"] } },
@@ -24,6 +25,38 @@ export async function payInvoice(formData: FormData) {
   });
   if (!invoice) redirect("/tenant/payments?error=invalid");
 
+  // ---- Cash: log a PENDING payment; the landlord must confirm "cash received". ----
+  if (payMethod === "CASH") {
+    // Guard: don't stack multiple pending cash requests on the same invoice.
+    const existing = await prisma.payment.findFirst({
+      where: { invoiceId, method: "CASH", status: "PENDING" },
+    });
+    if (existing) {
+      revalidatePath("/tenant/payments");
+      redirect("/tenant/payments?cash=exists");
+    }
+    const payment = await prisma.payment.create({
+      data: {
+        invoiceId,
+        tenantId: session.user.id,
+        amount: invoice.amount,
+        method: "CASH",
+        status: "PENDING",
+        notes: "Cash payment — awaiting landlord confirmation",
+      },
+    });
+    await audit({ actorId: session.user.id, action: "payment.cashRequest", entity: "Payment", entityId: payment.id });
+    await notify(invoice.lease.landlordId, {
+      type: "payment",
+      title: "Cash payment to confirm",
+      body: "A tenant marked their rent as paid in cash — please confirm you received it.",
+      link: "/landlord/rent",
+    });
+    revalidatePath("/tenant/payments");
+    redirect("/tenant/payments?cash=1");
+  }
+
+  // ---- Online (simulated gateway) ----
   const payment = await prisma.payment.create({
     data: {
       invoiceId,

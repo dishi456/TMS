@@ -19,6 +19,7 @@ export type ListingItem = {
   hasLift: boolean;
   powerBackup: boolean;
   available: boolean;
+  availableFrom?: string | null; // set when occupied-but-on-notice (frees up soon)
   photoId: string | null;
 };
 
@@ -223,13 +224,15 @@ export function SmartMatch({ listings }: { listings: ListingItem[] }) {
               className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-300 hover:shadow-xl hover:shadow-blue-600/10"
             >
               {/* Image */}
-              <div className="relative h-48 w-full overflow-hidden bg-slate-100">
+              <div className="relative h-48 w-full overflow-hidden bg-gradient-to-br from-blue-100 to-sky-50">
                 {p.photoId ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={`/api/files/${p.photoId}`} alt={p.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <img src={`/api/files/${p.photoId}`} alt={p.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-5xl text-slate-300">🏢</div>
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-sky-400 text-5xl text-white/90">🏢</div>
                 )}
+                {/* gradient overlay for chip legibility */}
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/45 to-transparent" />
                 {/* badges over the image */}
                 {active && pct > 0 && i < 3 && (
                   <span className="absolute left-3 top-3 rounded-full bg-amber-400 px-2.5 py-1 text-[11px] font-bold text-amber-900 shadow">★ Top match</span>
@@ -240,9 +243,11 @@ export function SmartMatch({ listings }: { listings: ListingItem[] }) {
                   }`}>
                     {pct}% match
                   </span>
+                ) : p.available ? (
+                  <span className="absolute right-3 top-3 rounded-full bg-emerald-500 px-2.5 py-1 text-[11px] font-semibold text-white shadow">Available</span>
                 ) : (
-                  <span className={`absolute right-3 top-3 rounded-full px-2.5 py-1 text-[11px] font-semibold shadow ${p.available ? "bg-emerald-500 text-white" : "bg-slate-700/80 text-white"}`}>
-                    {p.available ? "Available" : "Occupied"}
+                  <span className="absolute right-3 top-3 rounded-full bg-amber-500 px-2.5 py-1 text-[11px] font-semibold text-white shadow">
+                    🔔 On notice{p.availableFrom ? ` · free ${p.availableFrom}` : ""}
                   </span>
                 )}
                 {/* price chip */}

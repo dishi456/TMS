@@ -3,101 +3,170 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { Logo } from "@/components/Logo";
-import { Badge, Card } from "@/components/ui";
-import { formatMoney } from "@/lib/format";
-import { PropertyFeatures } from "@/components/PropertyFeatures";
-import { ApplyForm } from "./ApplyForm";
-import { VisitForm } from "./VisitForm";
+import { Badge } from "@/components/ui";
+import { formatMoney, formatNumber } from "@/lib/format";
+import { PropertyGallery } from "./PropertyGallery";
+import { InquiryPanel } from "./InquiryPanel";
 
 export const metadata: Metadata = { title: "Property" };
 export const dynamic = "force-dynamic";
 
+function VerifiedBadge() {
+  return (
+    <span
+      title="Verified owner — ownership documents checked by admin"
+      className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700"
+    >
+      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 1l2.6 1.9 3.2-.2 1 3 2.7 1.8-1 3 1 3-2.7 1.8-1 3-3.2-.2L12 23l-2.6-1.9-3.2.2-1-3L2.5 16.5l1-3-1-3 2.7-1.8 1-3 3.2.2L12 1z" />
+        <path d="M10.6 14.6l-2.2-2.2-1.2 1.2 3.4 3.4 6-6-1.2-1.2z" fill="#fff" />
+      </svg>
+      Verified
+    </span>
+  );
+}
+
+const FURNISHING: Record<string, string> = {
+  UNFURNISHED: "Unfurnished",
+  SEMI_FURNISHED: "Semi-furnished",
+  FURNISHED: "Furnished",
+};
+const cap = (s: string) => s.charAt(0) + s.slice(1).toLowerCase();
+
 export default async function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const property = await prisma.property.findFirst({
-    where: { id, approved: true },
-    include: { documents: { where: { type: "PHOTO" }, orderBy: { createdAt: "asc" } } },
+    where: { id, approved: true, listedPublic: true },
+    include: {
+      documents: { where: { type: "PHOTO" }, orderBy: { createdAt: "asc" } },
+      landlord: { select: { fullName: true, verified: true } },
+      leases: {
+        where: { status: { in: ["ACTIVE", "RENEWED"] }, noticeGivenAt: { not: null } },
+        select: { noticeEffectiveDate: true, endDate: true },
+        orderBy: { noticeEffectiveDate: "asc" },
+        take: 1,
+      },
+    },
   });
   if (!property) notFound();
 
   const available = property.availability === "AVAILABLE";
+  const onNotice = !available && property.leases.length > 0;
+  const noticeDate = onNotice ? (property.leases[0].noticeEffectiveDate ?? property.leases[0].endDate) : null;
+  const noticeLabel = noticeDate ? noticeDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
+
+  // "2 BHK · 2 Bath · 1050 sqft" summary line
+  const summary = [
+    property.rooms ? `${property.rooms} BHK` : null,
+    property.bathrooms != null ? `${property.bathrooms} Bath` : null,
+    property.areaSqft != null ? `${formatNumber(property.areaSqft)} sqft` : null,
+  ].filter(Boolean).join("  ·  ");
+
+  // OLX-style key/value detail rows (only those with a value)
+  const details: [string, string][] = [["Type", cap(property.type)]];
+  if (property.rooms != null) details.push(["Bedrooms", formatNumber(property.rooms)]);
+  if (property.bathrooms != null) details.push(["Bathrooms", formatNumber(property.bathrooms)]);
+  details.push(["Furnishing", FURNISHING[property.furnishing] ?? property.furnishing]);
+  if (property.areaSqft != null) details.push(["Super built-up area", `${formatNumber(property.areaSqft)} sq ft`]);
+  if (property.carpetAreaSqft != null) details.push(["Carpet area", `${formatNumber(property.carpetAreaSqft)} sq ft`]);
+  if (property.floor != null) details.push(["Floor", property.totalFloors != null ? `${property.floor} of ${property.totalFloors}` : String(property.floor)]);
+  if (property.balconies != null) details.push(["Balconies", formatNumber(property.balconies)]);
+  if (property.facing) details.push(["Facing", property.facing]);
+  if (property.parkingSpots != null) details.push(["Car parking", formatNumber(property.parkingSpots)]);
+  else details.push(["Parking", property.hasParking ? "Yes" : "No"]);
+  details.push(["Lift / Elevator", property.hasLift ? "Yes" : "No"]);
+  details.push(["Power backup", property.powerBackup ? "Yes" : "No"]);
+  details.push(["Bachelors allowed", property.bachelorsAllowed ? "Yes" : "No"]);
+  if (property.maintenanceMonthly != null) details.push(["Maintenance (monthly)", formatMoney(property.maintenanceMonthly)]);
+  details.push(["Notice period", `${property.noticePeriodDays} days`]);
+  details.push(["Security deposit", formatMoney(property.securityDeposit)]);
+  if (property.projectName) details.push(["Project / society", property.projectName]);
+  if (property.numberOfUnits > 1) details.push(["Units", formatNumber(property.numberOfUnits)]);
+  details.push(["Listed by", cap(property.listedBy)]);
+
+  const amenities = [...property.amenities];
+  if (property.hasLobby) amenities.unshift("Lobby");
 
   return (
     <main className="min-h-dvh bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link href="/listings"><Logo className="h-9" /></Link>
           <Link href="/login" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Sign in</Link>
         </div>
       </header>
 
-      <div className="mx-auto max-w-5xl px-4 py-6">
+      <div className="mx-auto max-w-6xl px-4 py-6">
         <Link href="/listings" className="text-sm text-blue-600 hover:text-blue-700">← All properties</Link>
 
         <div className="mt-3 grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            {property.documents.length > 0 ? (
-              <div className="grid grid-cols-2 gap-2">
-                {property.documents.map((d, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={d.id} src={`/api/files/${d.id}`} alt={`${property.name} ${i + 1}`} className={`w-full rounded-xl border border-slate-200 object-cover ${i === 0 ? "col-span-2 h-72" : "h-40"}`} />
-                ))}
-              </div>
-            ) : (
-              <div className="flex h-72 w-full items-center justify-center rounded-xl bg-slate-100 text-5xl text-slate-300">🏢</div>
-            )}
+          {/* ---------- Left: gallery + details + description ---------- */}
+          <div className="space-y-6 lg:col-span-2">
+            {/* Gallery (unchanged) */}
+            <PropertyGallery photoIds={property.documents.map((d) => d.id)} name={property.name} />
 
-            <div className="mt-4">
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-semibold text-slate-900">{property.name}</h1>
-                {available ? <Badge tone="green">Available</Badge> : <Badge tone="slate">Occupied</Badge>}
+            {/* Title + price */}
+            <div>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-2xl font-semibold text-slate-900">{property.name}</h1>
+                    {(property.verified || property.landlord.verified) && <VerifiedBadge />}
+                  </div>
+                  <p className="mt-0.5 flex items-center gap-1 text-sm text-slate-500">
+                    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                    {property.address}
+                  </p>
+                </div>
+                {available ? <Badge tone="green">Available</Badge> : onNotice ? <Badge tone="amber">🔔 On notice · available {noticeLabel}</Badge> : <Badge tone="slate">Occupied</Badge>}
               </div>
-              <p className="text-sm text-slate-500">{property.address}</p>
-              {property.description && <p className="mt-3 text-sm text-slate-700">{property.description}</p>}
-
-              <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
-                <Fact label="Rent" value={`${formatMoney(property.rentAmount)}/mo`} />
-                <Fact label="Deposit" value={formatMoney(property.securityDeposit)} />
-                <Fact label="Type" value={property.type.charAt(0) + property.type.slice(1).toLowerCase()} />
-              </div>
-
-              <div className="mt-5">
-                <h2 className="mb-2 text-sm font-semibold text-slate-700">Features &amp; layout</h2>
-                <PropertyFeatures p={property} />
+              <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <p className="text-3xl font-bold text-blue-700">
+                  {formatMoney(property.rentAmount)}<span className="text-base font-normal text-slate-400">/mo</span>
+                </p>
+                {summary && <span className="text-sm font-medium text-slate-500">{summary}</span>}
               </div>
             </div>
+
+            {/* Details */}
+            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-slate-900">Details</h2>
+              <dl className="mt-4 grid grid-cols-1 gap-x-10 gap-y-1 sm:grid-cols-2">
+                {details.map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between gap-4 border-b border-slate-100 py-2.5 text-sm">
+                    <dt className="text-slate-500">{label}</dt>
+                    <dd className="text-right font-medium text-slate-800">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              {amenities.length > 0 && (
+                <div className="mt-5 border-t border-slate-100 pt-4">
+                  <p className="mb-2 text-sm font-semibold text-slate-700">Amenities</p>
+                  <div className="flex flex-wrap gap-2">
+                    {amenities.map((a) => (
+                      <span key={a} className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{a}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* Description */}
+            {property.description && (
+              <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 className="text-lg font-semibold text-slate-900">Description</h2>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{property.description}</p>
+              </section>
+            )}
           </div>
 
-          <div className="space-y-5">
-            <div>
-              <h2 className="mb-2 text-sm font-semibold text-slate-700">Apply for this property</h2>
-              <Card>
-                {available ? (
-                  <ApplyForm propertyId={property.id} />
-                ) : (
-                  <p className="text-sm text-slate-500">This property is currently occupied. Check back later or browse other listings.</p>
-                )}
-              </Card>
-            </div>
-
-            <div>
-              <h2 className="mb-2 text-sm font-semibold text-slate-700">📅 Schedule a visit</h2>
-              <Card>
-                <VisitForm propertyId={property.id} />
-              </Card>
-            </div>
+          {/* ---------- Right: inquiry panel (sticky) ---------- */}
+          <div className="self-start lg:sticky lg:top-20">
+            <InquiryPanel propertyId={property.id} available={available} />
           </div>
         </div>
       </div>
     </main>
-  );
-}
-
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3">
-      <p className="text-xs text-slate-400">{label}</p>
-      <p className="font-medium text-slate-800">{value}</p>
-    </div>
   );
 }

@@ -45,6 +45,35 @@ async function imgDoc(opts: {
   });
 }
 
+// Real demo property photo via Lorem Picsum, with an offline fallback to a
+// labelled placeholder so the seed still works without a network connection.
+async function savePhoto(key: string, seed: string, label: string, bg: string): Promise<number> {
+  let buf: Buffer | null = null;
+  try {
+    const r = await fetch(`https://picsum.photos/seed/${encodeURIComponent(seed)}/900/600`);
+    if (r.ok) buf = Buffer.from(await r.arrayBuffer());
+  } catch {
+    /* offline — fall back to a placeholder below */
+  }
+  if (!buf) {
+    const safe = label.replace(/[<>&]/g, "");
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600"><rect width="900" height="600" fill="${bg}"/><text x="450" y="315" font-family="Arial" font-size="40" fill="#ffffff" text-anchor="middle">${safe}</text></svg>`;
+    buf = await sharp(Buffer.from(svg)).jpeg().toBuffer();
+  }
+  const full = path.join(STORAGE, key);
+  await fs.mkdir(path.dirname(full), { recursive: true });
+  await fs.writeFile(full, buf);
+  return buf.length;
+}
+
+async function propPhoto(pid: string, owner: string, idx: number, label: string) {
+  const key = `properties/${pid}/seed-${++docSeq}.jpg`;
+  const size = await savePhoto(key, `${pid}-${idx}`, label, "#2563EB");
+  return prisma.document.create({
+    data: { ownerId: owner, propertyId: pid, type: "PHOTO", storageKey: key, fileName: `${label}.jpg`, contentType: "image/jpeg", sizeBytes: size, label },
+  });
+}
+
 const now = new Date();
 const m1 = (off: number) => new Date(now.getFullYear(), now.getMonth() + off, 1); // first of month
 const d = (off: number, day: number) => new Date(now.getFullYear(), now.getMonth() + off, day);
@@ -54,6 +83,8 @@ async function main() {
 
   // ---- Clean domain data (keep schema; rebuild a deterministic demo set) ----
   await prisma.auditLog.deleteMany();
+  await prisma.message.deleteMany();
+  await prisma.propertyInquiry.deleteMany();
   await prisma.visit.deleteMany();
   await prisma.application.deleteMany();
   await prisma.passwordResetToken.deleteMany();
@@ -84,12 +115,12 @@ async function main() {
       { id: "u-l3", email: "david.landlord@tms.local", passwordHash: pw, role: Role.LANDLORD, status: "PENDING", verified: false, fullName: "David Chen", phone: "+1 415 555 0113" },
 
       // Tenants (managed by a landlord)
-      { id: "u-t1", email: "tenant@tms.local", passwordHash: pw, role: Role.TENANT, status: "ACTIVE", verified: true, fullName: "Emily Davis", phone: "+1 646 555 0201", governmentId: "GID-DAVIS-2291", emergencyContact: "Robert Davis +1 646 555 0301", landlordId: "u-l1" },
+      { id: "u-t1", email: "tenant@tms.local", passwordHash: pw, role: Role.TENANT, status: "ACTIVE", verified: true, fullName: "Emily Davis", phone: "+1 646 555 0201", governmentId: "GID-DAVIS-2291", emergencyContact: "Robert Davis +1 646 555 0301", landlordId: "u-l1", chatContactConfirmed: true },
       { id: "u-t2", email: "james.tenant@tms.local", passwordHash: pw, role: Role.TENANT, status: "ACTIVE", verified: true, fullName: "James Wilson", phone: "+1 646 555 0202", governmentId: "GID-WILSON-7741", emergencyContact: "Mary Wilson +1 646 555 0302", landlordId: "u-l1" },
       { id: "u-t3", email: "olivia.tenant@tms.local", passwordHash: pw, role: Role.TENANT, status: "ACTIVE", verified: true, fullName: "Olivia Brown", phone: "+1 646 555 0203", governmentId: "GID-BROWN-1180", emergencyContact: "Tom Brown +1 646 555 0303", landlordId: "u-l1" },
       { id: "u-t4", email: "daniel.tenant@tms.local", passwordHash: pw, role: Role.TENANT, status: "ACTIVE", verified: false, fullName: "Daniel Martinez", phone: "+1 646 555 0204", governmentId: "GID-MART-5562", emergencyContact: "Ana Martinez +1 646 555 0304", landlordId: "u-l2" },
       { id: "u-t5", email: "sophia.tenant@tms.local", passwordHash: pw, role: Role.TENANT, status: "PENDING", verified: false, fullName: "Sophia Garcia", phone: "+1 646 555 0205", governmentId: "GID-GARCIA-9034", landlordId: "u-l1" },
-      { id: "u-t6", email: "william.tenant@tms.local", passwordHash: pw, role: Role.TENANT, status: "ACTIVE", verified: true, fullName: "William Lee", phone: "+1 646 555 0206", governmentId: "GID-LEE-4408", emergencyContact: "Grace Lee +1 646 555 0306", landlordId: "u-l2" },
+      { id: "u-t6", email: "william.tenant@tms.local", passwordHash: pw, role: Role.TENANT, status: "ACTIVE", verified: true, fullName: "William Lee", phone: "+1 646 555 0206", governmentId: "GID-LEE-4408", emergencyContact: "Grace Lee +1 646 555 0306", landlordId: "u-l1" },
     ],
   });
 
@@ -102,6 +133,10 @@ async function main() {
       { id: "p4", landlordId: "u-l2", name: "Downtown Loft", type: "APARTMENT", address: "300 Pine St, Seattle, WA", description: "Modern loft in the heart of downtown", rooms: 2, bathrooms: 2, balconies: 1, floor: 12, totalFloors: 20, areaSqft: 1300, furnishing: "FURNISHED", hasLobby: true, hasParking: true, hasLift: true, powerBackup: true, numberOfUnits: 6, rentAmount: 3000, securityDeposit: 6000, amenities: ["Rooftop", "Concierge", "Gym"], availability: "OCCUPIED", verified: true, approved: true },
       { id: "p5", landlordId: "u-l2", name: "Riverside Condo", type: "APARTMENT", address: "77 River Walk, Austin, TX", description: "Riverfront condo, pending verification", rooms: 3, bathrooms: 2, balconies: 2, floor: 5, totalFloors: 10, areaSqft: 1600, furnishing: "SEMI_FURNISHED", hasLobby: true, hasParking: true, hasLift: true, powerBackup: false, numberOfUnits: 3, rentAmount: 2800, securityDeposit: 5600, amenities: ["River View"], availability: "AVAILABLE", verified: false, approved: false },
       { id: "p6", landlordId: "u-l1", name: "Maple Court", type: "COMMERCIAL", address: "5 Maple Court, Boston, MA", description: "Ground-floor commercial space", rooms: 0, bathrooms: 2, balconies: 0, floor: 0, totalFloors: 4, areaSqft: 2400, furnishing: "UNFURNISHED", hasLobby: true, hasParking: true, hasLift: true, powerBackup: true, numberOfUnits: 2, rentAmount: 5000, securityDeposit: 10000, amenities: ["Street Frontage"], availability: "AVAILABLE", verified: true, approved: true },
+      { id: "p7", landlordId: "u-l2", name: "Cedar Heights", type: "APARTMENT", address: "21 Cedar Lane, Denver, CO", description: "Bright 2BHK with mountain views and a modern kitchen.", rooms: 2, bathrooms: 2, balconies: 1, floor: 6, totalFloors: 12, areaSqft: 1150, furnishing: "SEMI_FURNISHED", hasLobby: true, hasParking: true, hasLift: true, powerBackup: true, numberOfUnits: 5, rentAmount: 2300, securityDeposit: 4600, amenities: ["Gym", "Rooftop"], availability: "AVAILABLE", verified: true, approved: true },
+      { id: "p8", landlordId: "u-l1", name: "Orchard Greens", type: "HOUSE", address: "9 Orchard St, Portland, OR", description: "Family 3BR home with a private backyard and garage.", rooms: 3, bathrooms: 2, balconies: 1, floor: 0, totalFloors: 2, areaSqft: 1900, furnishing: "UNFURNISHED", hasLobby: false, hasParking: true, hasLift: false, powerBackup: false, numberOfUnits: 1, rentAmount: 2700, securityDeposit: 5400, amenities: ["Garden", "Garage"], availability: "AVAILABLE", verified: true, approved: true },
+      { id: "p9", landlordId: "u-l2", name: "City Square Studio", type: "ROOM", address: "500 Market St, San Francisco, CA", description: "Cozy furnished studio in the heart of downtown.", rooms: 1, bathrooms: 1, balconies: 0, floor: 8, totalFloors: 15, areaSqft: 480, furnishing: "FURNISHED", hasLobby: true, hasParking: false, hasLift: true, powerBackup: true, numberOfUnits: 1, rentAmount: 1800, securityDeposit: 3600, amenities: ["WiFi", "Laundry"], availability: "AVAILABLE", verified: true, approved: true },
+      { id: "p10", landlordId: "u-l1", name: "Bayview Residency", type: "APARTMENT", address: "14 Harbor Dr, San Diego, CA", description: "Spacious 3BHK with a sea-facing balcony.", rooms: 3, bathrooms: 2, balconies: 2, floor: 9, totalFloors: 18, areaSqft: 1500, furnishing: "SEMI_FURNISHED", hasLobby: true, hasParking: true, hasLift: true, powerBackup: true, numberOfUnits: 4, rentAmount: 3200, securityDeposit: 6400, amenities: ["Sea View", "Gym", "Pool"], availability: "AVAILABLE", verified: true, approved: true },
     ],
   });
 
@@ -236,19 +271,38 @@ async function main() {
     ],
   });
 
+  // ---- OLX-style listing details per property ----
+  const listingExtra: Record<string, { carpetAreaSqft: number; facing: string; maintenanceMonthly: number; projectName: string; parkingSpots: number; listedBy: "OWNER" | "DEALER" | "BUILDER"; bachelorsAllowed: boolean }> = {
+    p1: { carpetAreaSqft: 820, facing: "North-East", maintenanceMonthly: 150, projectName: "Green Meadows Society", parkingSpots: 1, listedBy: "OWNER", bachelorsAllowed: true },
+    p2: { carpetAreaSqft: 360, facing: "East", maintenanceMonthly: 50, projectName: "Lakeview Residency", parkingSpots: 0, listedBy: "OWNER", bachelorsAllowed: true },
+    p3: { carpetAreaSqft: 2800, facing: "South", maintenanceMonthly: 0, projectName: "Sunset Estates", parkingSpots: 2, listedBy: "OWNER", bachelorsAllowed: false },
+    p4: { carpetAreaSqft: 1100, facing: "West", maintenanceMonthly: 200, projectName: "Pine Tower", parkingSpots: 1, listedBy: "DEALER", bachelorsAllowed: true },
+    p5: { carpetAreaSqft: 1400, facing: "North-West", maintenanceMonthly: 180, projectName: "Riverwalk Residences", parkingSpots: 1, listedBy: "DEALER", bachelorsAllowed: true },
+    p6: { carpetAreaSqft: 2100, facing: "North", maintenanceMonthly: 300, projectName: "Maple Court Plaza", parkingSpots: 4, listedBy: "BUILDER", bachelorsAllowed: true },
+    p7: { carpetAreaSqft: 980, facing: "East", maintenanceMonthly: 160, projectName: "Cedar Heights", parkingSpots: 1, listedBy: "OWNER", bachelorsAllowed: true },
+    p8: { carpetAreaSqft: 1700, facing: "South", maintenanceMonthly: 0, projectName: "Orchard Greens", parkingSpots: 2, listedBy: "OWNER", bachelorsAllowed: false },
+    p9: { carpetAreaSqft: 430, facing: "West", maintenanceMonthly: 90, projectName: "City Square", parkingSpots: 0, listedBy: "DEALER", bachelorsAllowed: true },
+    p10: { carpetAreaSqft: 1300, facing: "South-West", maintenanceMonthly: 220, projectName: "Bayview Residency", parkingSpots: 1, listedBy: "OWNER", bachelorsAllowed: true },
+  };
+  for (const [pid, data] of Object.entries(listingExtra)) {
+    await prisma.property.update({ where: { id: pid }, data });
+  }
+
   // ---- Documents & images (placeholder files in local storage) ----
   const BLUE = "#2563EB";
   const SLATE = "#475569";
-  const propLandlord: Record<string, string> = { p1: "u-l1", p2: "u-l1", p3: "u-l1", p4: "u-l2", p5: "u-l2", p6: "u-l1" };
+  const propLandlord: Record<string, string> = { p1: "u-l1", p2: "u-l1", p3: "u-l1", p4: "u-l2", p5: "u-l2", p6: "u-l1", p7: "u-l2", p8: "u-l1", p9: "u-l2", p10: "u-l1" };
   const propName: Record<string, string> = {
     p1: "Green Meadows", p2: "Lakeview Studio", p3: "Sunset Villa", p4: "Downtown Loft", p5: "Riverside Condo", p6: "Maple Court",
+    p7: "Cedar Heights", p8: "Orchard Greens", p9: "City Square Studio", p10: "Bayview Residency",
   };
 
   // Property photos (drive list thumbnails + galleries).
-  const photoPlan: Record<string, number> = { p1: 2, p2: 1, p3: 2, p4: 2, p5: 1, p6: 1 };
+  const ROOMS = ["Exterior", "Living Room", "Bedroom", "Kitchen", "Bathroom", "Balcony"];
+  const photoPlan: Record<string, number> = { p1: 6, p2: 5, p3: 6, p4: 6, p5: 5, p6: 5, p7: 6, p8: 6, p9: 5, p10: 6 };
   for (const [pid, n] of Object.entries(photoPlan)) {
-    for (let i = 1; i <= n; i++) {
-      await imgDoc({ ownerId: propLandlord[pid], propertyId: pid, type: "PHOTO", label: `${propName[pid]} Photo ${i}`, bg: BLUE });
+    for (let i = 0; i < n; i++) {
+      await propPhoto(pid, propLandlord[pid], i, `${propName[pid]} — ${ROOMS[i % ROOMS.length]}`);
     }
   }
   // Ownership proof on a property (admin "verify documents").
@@ -270,10 +324,11 @@ async function main() {
   }
 
   // Maintenance request photos (tenant-uploaded supporting images).
-  const mr1Img = await imgDoc({ ownerId: "u-t1", propertyId: "p1", type: "PHOTO", label: "Leaking Tap", bg: BLUE });
+  // Maintenance photos are tenant-private (no propertyId → not shown in the public gallery).
+  const mr1Img = await imgDoc({ ownerId: "u-t1", type: "PHOTO", label: "Leaking Tap", bg: BLUE });
   await prisma.maintenanceRequest.update({ where: { id: "MR1" }, data: { images: [`/api/files/${mr1Img.id}`] } });
-  const mr2a = await imgDoc({ ownerId: "u-t1", propertyId: "p1", type: "PHOTO", label: "AC Unit 1", bg: BLUE });
-  const mr2b = await imgDoc({ ownerId: "u-t1", propertyId: "p1", type: "PHOTO", label: "AC Unit 2", bg: BLUE });
+  const mr2a = await imgDoc({ ownerId: "u-t1", type: "PHOTO", label: "AC Unit 1", bg: BLUE });
+  const mr2b = await imgDoc({ ownerId: "u-t1", type: "PHOTO", label: "AC Unit 2", bg: BLUE });
   await prisma.maintenanceRequest.update({ where: { id: "MR2" }, data: { images: [`/api/files/${mr2a.id}`, `/api/files/${mr2b.id}`] } });
 
   // ---- Public rental applications (leads on available listings) ----
@@ -282,6 +337,33 @@ async function main() {
       { propertyId: "p5", fullName: "Nathan Cooper", email: "nathan.cooper@example.com", phone: "+1 512 555 0701", message: "Interested in the Riverside Condo — available to move in next month.", status: "PENDING" },
       { propertyId: "p6", fullName: "Laura Bennett", email: "laura.bennett@example.com", phone: "+1 617 555 0702", message: "Looking for commercial space for a small studio.", status: "PENDING" },
       { propertyId: "p5", fullName: "Marcus Reed", email: "marcus.reed@example.com", phone: "+1 512 555 0703", message: "Two adults, no pets. Great references available.", status: "REJECTED" },
+    ],
+  });
+
+  // ---- Public property enquiry (guest chat from a listing) ----
+  await prisma.propertyInquiry.create({
+    data: {
+      propertyId: "p6",
+      landlordId: "u-l1",
+      guestName: "Rahul Mehta",
+      guestPhone: "+1 617 555 0990",
+      guestEmail: "rahul.mehta@example.com",
+      messages: {
+        create: [
+          { fromGuest: true, body: "Hi, is Maple Court still available for a small cafe?" },
+          { fromGuest: false, body: "Hi Rahul, yes it is! Ground-floor with street frontage. Want to schedule a viewing?" },
+          { fromGuest: true, body: "Great — could I come by this weekend?" },
+        ],
+      },
+    },
+  });
+
+  // ---- Direct messages (landlord ↔ tenant chat) ----
+  await prisma.message.createMany({
+    data: [
+      { senderId: "u-t1", recipientId: "u-l1", body: "Hi Michael, the kitchen tap is still dripping — any update on the plumber?", read: true },
+      { senderId: "u-l1", recipientId: "u-t1", body: "Hi Emily, I've scheduled CoolAir for tomorrow morning. They'll fix the tap and check the AC.", read: true },
+      { senderId: "u-t1", recipientId: "u-l1", body: "Perfect, thank you! I'll be home after 10am.", read: false },
     ],
   });
 

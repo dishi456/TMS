@@ -29,12 +29,23 @@ export type PropertyDefaults = {
   hasParking?: boolean;
   hasLift?: boolean;
   powerBackup?: boolean;
+  carpetAreaSqft?: string;
+  facing?: string;
+  bachelorsAllowed?: boolean;
+  maintenanceMonthly?: string;
+  projectName?: string;
+  parkingSpots?: string;
+  listedBy?: string;
   amenities?: string;
   availability?: string;
+  listedPublic?: boolean;
 };
 
 const FURNISHING = ["UNFURNISHED", "SEMI_FURNISHED", "FURNISHED"] as const;
 const furnishingLabel = (f: string) => f.charAt(0) + f.slice(1).toLowerCase().replace(/_/g, "-");
+const FACING = ["North", "South", "East", "West", "North-East", "North-West", "South-East", "South-West"];
+const LISTED_BY = ["OWNER", "DEALER", "BUILDER"];
+const titleCase = (s: string) => s.charAt(0) + s.slice(1).toLowerCase();
 
 export function PropertyForm({
   mode,
@@ -167,10 +178,57 @@ export function PropertyForm({
         </div>
       </div>
 
+      {/* Listing details — OLX-style extras */}
+      <div className="rounded-lg border border-slate-200 p-3">
+        <FieldLabel>Listing details</FieldLabel>
+        <div className="mt-2 grid gap-4 sm:grid-cols-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-slate-500">Carpet area (sq ft)</span>
+            <input name="carpetAreaSqft" type="number" min="0" defaultValue={defaults.carpetAreaSqft} className={inputClass} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-slate-500">Car parking (spots)</span>
+            <input name="parkingSpots" type="number" min="0" defaultValue={defaults.parkingSpots} className={inputClass} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-slate-500">Maintenance ($/mo)</span>
+            <input name="maintenanceMonthly" type="number" min="0" defaultValue={defaults.maintenanceMonthly} className={inputClass} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-slate-500">Facing</span>
+            <select name="facing" defaultValue={defaults.facing ?? ""} className={inputClass}>
+              <option value="">Not specified</option>
+              {FACING.map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-slate-500">Listed by</span>
+            <select name="listedBy" defaultValue={defaults.listedBy ?? "OWNER"} className={inputClass}>
+              {LISTED_BY.map((l) => <option key={l} value={l}>{titleCase(l)}</option>)}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-slate-500">Project / society name</span>
+            <input name="projectName" defaultValue={defaults.projectName} className={inputClass} />
+          </label>
+        </div>
+        <label className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" name="bachelorsAllowed" value="true" defaultChecked={defaults.bachelorsAllowed ?? true} className="h-4 w-4 rounded border-slate-300" /> Bachelors allowed
+        </label>
+      </div>
+
       <label className="flex flex-col gap-1">
         <FieldLabel>Amenities (comma-separated)</FieldLabel>
         <input name="amenities" defaultValue={defaults.amenities} placeholder="Parking, Lift, Power Backup" className={inputClass} />
       </label>
+
+      <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3">
+        <label className="flex items-center gap-2 text-sm font-medium text-slate-800">
+          <input type="checkbox" name="listedPublic" value="true" defaultChecked={defaults.listedPublic ?? true} className="h-4 w-4 rounded border-slate-300" />
+          🌐 Show on the public listings page
+        </label>
+        <p className="mt-1 text-xs text-slate-500">Requires approval too. Untick to keep this property private.</p>
+      </div>
 
       {state?.error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{state.error}</p>}
       {state?.success && <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{state.success}</p>}

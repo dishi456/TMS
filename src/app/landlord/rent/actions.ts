@@ -80,6 +80,42 @@ export async function recordPayment(formData: FormData) {
   redirect(`${BACK}?recorded=1`);
 }
 
+// Confirm a tenant's pending cash payment: mark it received and the invoice paid.
+export async function confirmCashPayment(formData: FormData) {
+  const session = await requireLandlord();
+  const paymentId = String(formData.get("paymentId"));
+  const payment = await prisma.payment.findFirst({
+    where: { id: paymentId, method: "CASH", status: "PENDING", invoice: { lease: { landlordId: session.user.id } } },
+  });
+  if (!payment) redirect(BACK);
+
+  await prisma.payment.update({
+    where: { id: paymentId },
+    data: { status: "SUCCESS", verified: true, paidAt: new Date(), notes: "Cash received — confirmed by landlord" },
+  });
+  await prisma.invoice.update({ where: { id: payment.invoiceId }, data: { status: "PAID" } });
+  await audit({ actorId: session.user.id, action: "payment.cashConfirm", entity: "Payment", entityId: paymentId });
+  await notify(payment.tenantId, { type: "payment", title: "Cash payment confirmed", body: "Your landlord confirmed your cash rent payment.", link: "/tenant/payments" });
+  revalidatePath(BACK);
+  redirect(`${BACK}?recorded=1`);
+}
+
+// Reject a pending cash payment (e.g. cash not actually received).
+export async function rejectCashPayment(formData: FormData) {
+  const session = await requireLandlord();
+  const paymentId = String(formData.get("paymentId"));
+  const payment = await prisma.payment.findFirst({
+    where: { id: paymentId, method: "CASH", status: "PENDING", invoice: { lease: { landlordId: session.user.id } } },
+  });
+  if (!payment) redirect(BACK);
+
+  await prisma.payment.update({ where: { id: paymentId }, data: { status: "FAILED", notes: "Cash not received — rejected by landlord" } });
+  await audit({ actorId: session.user.id, action: "payment.cashReject", entity: "Payment", entityId: paymentId });
+  await notify(payment.tenantId, { type: "payment", title: "Cash payment not confirmed", body: "Your landlord couldn't confirm your cash payment. Please follow up.", link: "/tenant/payments" });
+  revalidatePath(BACK);
+  redirect(`${BACK}?rejected=1`);
+}
+
 async function remind(inv: { id: string; amount: { toString(): string }; dueDate: Date; lease: { tenantId: string; property: { name: string } } }) {
   await prisma.notification.create({
     data: {

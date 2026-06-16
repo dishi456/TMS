@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { LandlordShell } from "@/components/LandlordShell";
 import { VerificationDocs } from "@/components/VerificationDocs";
 import { logout } from "@/app/actions/auth";
+
+export const metadata: Metadata = {
+  title: { template: "%s · Landlord", default: "Landlord Dashboard" },
+};
 
 export default async function LandlordLayout({
   children,
@@ -37,12 +42,13 @@ export default async function LandlordLayout({
     );
   }
 
-  const unread = await prisma.notification.count({
-    where: { userId: session!.user.id, read: false },
-  });
+  const [unread, chatUnread] = await Promise.all([
+    prisma.notification.count({ where: { userId: session!.user.id, read: false } }),
+    prisma.inquiryMessage.count({ where: { fromGuest: true, readByLandlord: false, inquiry: { landlordId: session!.user.id } } }),
+  ]);
 
   return (
-    <LandlordShell userName={session?.user?.name ?? "Landlord"} verified={me?.verified ?? false} unread={unread}>
+    <LandlordShell userName={session?.user?.name ?? "Landlord"} verified={me?.verified ?? false} unread={unread} chatUnread={chatUnread}>
       {children}
     </LandlordShell>
   );

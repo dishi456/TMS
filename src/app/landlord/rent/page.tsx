@@ -4,14 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { Badge, btn } from "@/components/ui";
 import { StatCard } from "@/components/StatCard";
 import { formatMoney, formatNumber } from "@/lib/format";
-import { generateInvoices, markOverdue, recordPayment, sendReminder, remindAllOverdue } from "./actions";
+import { generateInvoices, markOverdue, recordPayment, sendReminder, remindAllOverdue, confirmCashPayment, rejectCashPayment } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 const METHODS = ["UPI", "DEBIT_CARD", "CREDIT_CARD", "NET_BANKING"];
 const cap = (s: string) => s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, " ");
 
-type Search = { generated?: string; overdue?: string; reminded?: string; recorded?: string };
+type Search = { generated?: string; overdue?: string; reminded?: string; recorded?: string; rejected?: string };
 
 export default async function RentPage({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
@@ -22,7 +22,7 @@ export default async function RentPage({ searchParams }: { searchParams: Promise
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-  const [collected, pending, overdueAgg, invoices] = await Promise.all([
+  const [collected, pending, overdueAgg, invoices, cashPending] = await Promise.all([
     prisma.payment.aggregate({ _sum: { amount: true }, where: { status: "SUCCESS", paidAt: { gte: monthStart, lt: monthEnd }, invoice: { lease: { landlordId } } } }),
     prisma.invoice.aggregate({ _sum: { amount: true }, where: { status: { in: ["PENDING", "OVERDUE"] }, lease: { landlordId } } }),
     prisma.invoice.aggregate({ _sum: { amount: true }, where: { status: "OVERDUE", lease: { landlordId } } }),
@@ -32,6 +32,11 @@ export default async function RentPage({ searchParams }: { searchParams: Promise
       orderBy: { periodMonth: "desc" },
       take: 100,
     }),
+    prisma.payment.findMany({
+      where: { method: "CASH", status: "PENDING", invoice: { lease: { landlordId } } },
+      include: { tenant: { select: { fullName: true } }, invoice: { include: { lease: { include: { property: { select: { name: true } } } } } } },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   return (
@@ -40,6 +45,34 @@ export default async function RentPage({ searchParams }: { searchParams: Promise
       {sp.overdue !== undefined && <Banner>Marked {formatNumber(Number(sp.overdue))} overdue.</Banner>}
       {sp.reminded !== undefined && <Banner>{sp.reminded === "1" ? "Reminder sent." : `Sent ${formatNumber(Number(sp.reminded))} reminders.`}</Banner>}
       {sp.recorded && <Banner>Payment recorded.</Banner>}
+      {sp.rejected && <Banner>Cash payment rejected.</Banner>}
+
+      {/* Cash payments awaiting the landlord's confirmation */}
+      {cashPending.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="mb-2 text-sm font-semibold text-amber-900">💵 Cash payments to confirm ({cashPending.length})</p>
+          <div className="space-y-2">
+            {cashPending.map((p) => (
+              <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-white px-3 py-2">
+                <div>
+                  <p className="text-sm font-medium text-slate-800">{formatMoney(p.amount)} · {p.tenant.fullName}</p>
+                  <p className="text-xs text-slate-400">{p.invoice.lease.property.name} · {p.invoice.periodMonth.toLocaleDateString("en-US", { month: "short", year: "numeric" })}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <form action={confirmCashPayment}>
+                    <input type="hidden" name="paymentId" value={p.id} />
+                    <button className={btn("primary", "px-2.5 py-1.5")}>Confirm received</button>
+                  </form>
+                  <form action={rejectCashPayment}>
+                    <input type="hidden" name="paymentId" value={p.id} />
+                    <button className={btn("danger", "px-2.5 py-1.5")}>Reject</button>
+                  </form>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-base font-semibold text-slate-800">Rent Management</h1>

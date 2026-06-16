@@ -66,6 +66,7 @@ enum PaymentMethod {
   DEBIT_CARD
   CREDIT_CARD
   NET_BANKING
+  CASH
 }
 
 enum PaymentStatus {
@@ -135,6 +136,8 @@ model User {
   governmentId     String?
   emergencyContact String?
   avatarUrl        String?
+  lastSeenAt           DateTime? // presence heartbeat for chat "online" status
+  chatContactConfirmed Boolean   @default(false) // tenant confirmed name/email/phone before chatting
 
   // Delegated onboarding: a tenant is managed/approved by a landlord.
   landlordId       String?
@@ -161,6 +164,8 @@ model User {
   auditLogs        AuditLog[]
   complaintMsgs    ComplaintMessage[]
   resetTokens      PasswordResetToken[]
+  sentMessages     Message[]            @relation("SentMessages")
+  receivedMessages Message[]            @relation("ReceivedMessages")
 
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
@@ -178,6 +183,12 @@ enum FurnishingStatus {
   UNFURNISHED
   SEMI_FURNISHED
   FURNISHED
+}
+
+enum ListedBy {
+  OWNER
+  DEALER
+  BUILDER
 }
 
 model Property {
@@ -200,6 +211,13 @@ model Property {
   hasParking       Boolean            @default(false)
   hasLift          Boolean            @default(false)
   powerBackup      Boolean            @default(false)
+  carpetAreaSqft     Int?
+  facing             String?          // e.g. North-East
+  bachelorsAllowed   Boolean          @default(true)
+  maintenanceMonthly Decimal?         @db.Decimal(12, 2) // monthly society maintenance
+  projectName        String?          // building / society name
+  parkingSpots       Int?             // number of car parking spaces
+  listedBy           ListedBy         @default(OWNER)
   rentAmount       Decimal            @db.Decimal(12, 2)
   securityDeposit  Decimal            @db.Decimal(12, 2) @default(0)
   amenities        String[]           @default([])
@@ -208,6 +226,7 @@ model Property {
   noticePeriodDays Int                @default(30) // default notice-to-vacate period for this property
   verified         Boolean            @default(false) // ownership documents verified
   approved         Boolean            @default(false) // property registration approved
+  listedPublic     Boolean            @default(true)  // landlord opted to show it on the public listings page
 
   units            Unit[]
   leases           Lease[]
@@ -216,6 +235,7 @@ model Property {
   documents        Document[]
   applications     Application[]
   visits           Visit[]
+  inquiries        PropertyInquiry[]
 
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
@@ -230,6 +250,54 @@ enum VisitStatus {
   DECLINED
   CANCELLED
   COMPLETED
+}
+
+// A guest (anonymous visitor) chat with a landlord about a specific property.
+// Identified by a token the browser keeps, so no account is required.
+model PropertyInquiry {
+  id         String           @id @default(cuid())
+  token      String           @unique @default(cuid())
+  property   Property         @relation(fields: [propertyId], references: [id])
+  propertyId String
+  landlordId String // denormalised from the property for quick inbox queries
+  guestName  String
+  guestPhone String
+  guestEmail String?
+  messages   InquiryMessage[]
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@index([landlordId])
+  @@index([propertyId])
+}
+
+model InquiryMessage {
+  id             String          @id @default(cuid())
+  inquiry        PropertyInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  inquiryId      String
+  fromGuest      Boolean // true = visitor, false = landlord
+  body           String
+  readByLandlord Boolean         @default(false)
+  readByGuest    Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+
+  @@index([inquiryId])
+}
+
+// Direct 1:1 message between a landlord and one of their tenants.
+model Message {
+  id          String   @id @default(cuid())
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  senderId    String
+  recipient   User     @relation("ReceivedMessages", fields: [recipientId], references: [id])
+  recipientId String
+  body        String
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([createdAt])
 }
 
 // A prospective tenant's request to tour a property.

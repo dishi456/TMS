@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/auth";
 import { Logo } from "@/components/Logo";
+import { ProfileMenu } from "@/components/ProfileMenu";
 
 type NavItem = { href: string; label: string; icon: keyof typeof icons };
 
@@ -13,10 +14,12 @@ const NAV: NavItem[] = [
   { href: "/landlord/tenants", label: "Tenants", icon: "users" },
   { href: "/landlord/applications", label: "Applications", icon: "inbox" },
   { href: "/landlord/visits", label: "Visits", icon: "calendar" },
+  { href: "/landlord/inquiries", label: "Chats", icon: "help" },
   { href: "/landlord/leases", label: "Leases", icon: "doc" },
   { href: "/landlord/rent", label: "Rent", icon: "card" },
   { href: "/landlord/maintenance", label: "Maintenance", icon: "wrench" },
   { href: "/landlord/complaints", label: "Complaints", icon: "chat" },
+  { href: "/landlord/messages", label: "Messages", icon: "messages" },
   { href: "/landlord/reviews", label: "Rate Tenants", icon: "star" },
   { href: "/landlord/verification", label: "Verification", icon: "badge" },
   { href: "/landlord/notifications", label: "Notifications", icon: "bell" },
@@ -31,11 +34,13 @@ export function LandlordShell({
   userName,
   verified,
   unread = 0,
+  chatUnread = 0,
   children,
 }: {
   userName: string;
   verified: boolean;
   unread?: number;
+  chatUnread?: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -67,6 +72,9 @@ export function LandlordShell({
                 {item.href === "/landlord/notifications" && unread > 0 && (
                   <span className="ml-auto rounded-full bg-red-500 px-1.5 text-xs font-semibold text-white">{unread}</span>
                 )}
+                {item.href === "/landlord/inquiries" && chatUnread > 0 && (
+                  <span className="ml-auto rounded-full bg-red-500 px-1.5 text-xs font-semibold text-white">{chatUnread}</span>
+                )}
               </Link>
             );
           })}
@@ -95,20 +103,22 @@ export function LandlordShell({
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white/90 px-4 backdrop-blur lg:px-6">
           <div className="flex items-center gap-2">
             <Logo className="h-7 lg:hidden" />
-            <h1 className="text-base font-semibold text-slate-800">{current?.label ?? "Landlord Portal"}</h1>
+            <h1 className="text-base font-semibold text-slate-800">{pathname === "/landlord" ? "Landlord Dashboard" : current?.label ?? "Landlord Portal"}</h1>
           </div>
           <div className="flex items-center gap-3">
             <Link href="/landlord/notifications" className="relative text-slate-500 hover:text-slate-700">
               {icons.bell}
               {unread > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">{unread}</span>}
             </Link>
-            <span className="hidden text-sm text-slate-600 sm:block">{userName}</span>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
-              {userName.charAt(0).toUpperCase()}
-            </span>
-            <form action={logout} className="lg:hidden">
-              <button className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">Sign out</button>
-            </form>
+            <ProfileMenu
+              name={userName}
+              role="Landlord"
+              items={[
+                { href: "/landlord/account", label: "Account & password", icon: "⚙️" },
+                { href: "/landlord/verification", label: "Upload documents", icon: "📄" },
+                { href: "/landlord/notifications", label: "Notifications", icon: "🔔" },
+              ]}
+            />
           </div>
         </header>
 
@@ -162,6 +172,12 @@ const icons = {
   ),
   chat: (
     <svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+  ),
+  messages: (
+    <svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+  ),
+  help: (
+    <svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z" /><path d="M9.5 9a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3" /><path d="M12 17h.01" /></svg>
   ),
   inbox: (
     <svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></svg>

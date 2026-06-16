@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { AdminShell } from "@/components/AdminShell";
+
+export const metadata: Metadata = {
+  title: { template: "%s · Master Admin", default: "Master Admin Dashboard" },
+};
 
 export default async function AdminLayout({
   children,

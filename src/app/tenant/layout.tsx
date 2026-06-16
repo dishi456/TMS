@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { TenantShell } from "@/components/TenantShell";
 import { logout } from "@/app/actions/auth";
+
+export const metadata: Metadata = {
+  title: { template: "%s · Tenant", default: "Tenant Dashboard" },
+};
 
 export default async function TenantLayout({
   children,

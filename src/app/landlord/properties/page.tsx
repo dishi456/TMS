@@ -17,7 +17,13 @@ export default async function LandlordPropertiesPage({
 
   const properties = await prisma.property.findMany({
     where: { landlordId },
-    include: { documents: { where: { type: "PHOTO" }, take: 1, orderBy: { createdAt: "asc" } } },
+    include: {
+      documents: { where: { type: "PHOTO" }, take: 1, orderBy: { createdAt: "asc" } },
+      leases: {
+        where: { status: { in: ["ACTIVE", "RENEWED"] } },
+        select: { id: true, tenant: { select: { fullName: true } } },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -57,12 +63,26 @@ export default async function LandlordPropertiesPage({
               <div className="p-3">
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-medium text-slate-800">{p.name}</p>
-                  {p.approved ? <Badge tone="green">Approved</Badge> : <Badge tone="amber">Pending</Badge>}
+                  <div className="flex shrink-0 items-center gap-1">
+                    {p.approved ? <Badge tone="green">Approved</Badge> : <Badge tone="amber">Pending</Badge>}
+                    {!p.listedPublic && <Badge tone="slate">Private</Badge>}
+                  </div>
                 </div>
                 <p className="truncate text-xs text-slate-400">{p.address}</p>
                 <div className="mt-2 flex items-center justify-between text-sm">
                   <span className="text-slate-700">{formatMoney(p.rentAmount)}/mo</span>
                   <AvailBadge value={p.availability} />
+                </div>
+                {/* Which tenant(s) this property is assigned to */}
+                <div className="mt-2 border-t border-slate-100 pt-2">
+                  {p.leases.length === 0 ? (
+                    <p className="text-xs text-slate-400">👤 Vacant — no tenant assigned</p>
+                  ) : (
+                    <p className="text-xs text-slate-600">
+                      👤 <span className="font-medium">{p.leases.map((l) => l.tenant.fullName).join(", ")}</span>
+                      {p.numberOfUnits > 1 && <span className="text-slate-400"> · {p.leases.length}/{p.numberOfUnits} units</span>}
+                    </p>
+                  )}
                 </div>
               </div>
             </Link>

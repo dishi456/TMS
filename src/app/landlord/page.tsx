@@ -19,8 +19,7 @@ export default async function LandlordHome() {
   const [
     me,
     totalProperties,
-    unitsAgg,
-    occupiedLeases,
+    occupiedProps,
     activeTenants,
     expiringSoon,
     monthCollection,
@@ -31,8 +30,7 @@ export default async function LandlordHome() {
   ] = await Promise.all([
     prisma.user.findUnique({ where: { id: landlordId }, select: { verified: true } }),
     prisma.property.count({ where: { landlordId } }),
-    prisma.property.aggregate({ _sum: { numberOfUnits: true }, where: { landlordId } }),
-    prisma.lease.count({ where: { landlordId, status: { in: ["ACTIVE", "RENEWED"] } } }),
+    prisma.lease.findMany({ where: { landlordId, status: { in: ["ACTIVE", "RENEWED"] } }, select: { propertyId: true }, distinct: ["propertyId"] }),
     prisma.user.count({ where: { landlordId, role: "TENANT", status: "ACTIVE" } }),
     prisma.lease.count({ where: { landlordId, status: { in: ["ACTIVE", "RENEWED"] }, endDate: { lte: soon } } }),
     prisma.payment.aggregate({
@@ -50,8 +48,21 @@ export default async function LandlordHome() {
     prisma.rating.aggregate({ _avg: { stars: true }, where: { rateeId: landlordId, status: "VISIBLE" } }),
   ]);
 
-  const totalUnits = unitsAgg._sum.numberOfUnits ?? 0;
-  const vacantUnits = Math.max(0, totalUnits - occupiedLeases);
+  const occupiedCount = occupiedProps.length;
+  const vacantCount = Math.max(0, totalProperties - occupiedCount);
+
+  const stats = [
+    { label: "Total Properties", value: formatNumber(totalProperties), href: "/landlord/properties" },
+    { label: "Occupied", value: formatNumber(occupiedCount), hint: `of ${formatNumber(totalProperties)} properties`, href: "/landlord/properties" },
+    { label: "Vacant", value: formatNumber(vacantCount), hint: `of ${formatNumber(totalProperties)} properties`, href: "/landlord/properties" },
+    { label: "Active Tenants", value: formatNumber(activeTenants), href: "/landlord/tenants" },
+    { label: "Lease Expiry Alerts", value: formatNumber(expiringSoon), hint: "≤ 30 days", href: "/landlord/leases" },
+    { label: "Monthly Collection", value: formatMoney(monthCollection._sum.amount), hint: monthLabel, href: "/landlord/rent" },
+    { label: "Pending Payments", value: formatMoney(pendingPayments._sum.amount), href: "/landlord/rent" },
+    { label: "Maintenance", value: formatNumber(openMaintenance), hint: "open", href: "/landlord/maintenance" },
+    { label: "Complaints", value: formatNumber(openComplaints), hint: "open", href: "/landlord/complaints" },
+    { label: "Avg Rating", value: avgRating._avg.stars ? avgRating._avg.stars.toFixed(1) : "—", hint: "out of 5", href: "/landlord/reviews" },
+  ];
 
   return (
     <div className="space-y-5">
@@ -64,16 +75,11 @@ export default async function LandlordHome() {
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-        <StatCard tone="light" label="Total Properties" value={formatNumber(totalProperties)} />
-        <StatCard tone="light" label="Occupied Units" value={formatNumber(occupiedLeases)} hint={`${formatNumber(totalUnits)} total`} />
-        <StatCard tone="light" label="Vacant Units" value={formatNumber(vacantUnits)} />
-        <StatCard tone="light" label="Active Tenants" value={formatNumber(activeTenants)} />
-        <StatCard tone="light" label="Lease Expiry Alerts" value={formatNumber(expiringSoon)} hint="≤ 30 days" />
-        <StatCard tone="light" label="Monthly Collection" value={formatMoney(monthCollection._sum.amount)} hint={monthLabel} />
-        <StatCard tone="light" label="Pending Payments" value={formatMoney(pendingPayments._sum.amount)} />
-        <StatCard tone="light" label="Maintenance" value={formatNumber(openMaintenance)} hint="open" />
-        <StatCard tone="light" label="Complaints" value={formatNumber(openComplaints)} hint="open" />
-        <StatCard tone="light" label="Avg Rating" value={avgRating._avg.stars ? avgRating._avg.stars.toFixed(1) : "—"} hint="out of 5" />
+        {stats.map((s) => (
+          <Link key={s.label} href={s.href} className="block rounded-2xl transition-all hover:-translate-y-0.5 hover:shadow-md">
+            <StatCard tone="light" label={s.label} value={s.value} hint={s.hint} />
+          </Link>
+        ))}
       </div>
 
       <section>

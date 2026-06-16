@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/auth";
 import { Logo } from "@/components/Logo";
+import { ProfileMenu } from "@/components/ProfileMenu";
 
 type NavItem = { href: string; label: string; icon: keyof typeof icons };
 
@@ -12,6 +13,7 @@ const NAV: NavItem[] = [
   { href: "/tenant/payments", label: "Pay Rent", icon: "card" },
   { href: "/tenant/maintenance", label: "Maintenance", icon: "wrench" },
   { href: "/tenant/complaints", label: "Complaints", icon: "chat" },
+  { href: "/tenant/messages", label: "Messages", icon: "messages" },
   { href: "/tenant/lease", label: "Lease", icon: "doc" },
   { href: "/tenant/reviews", label: "Rate Landlord", icon: "star" },
   { href: "/tenant/notifications", label: "Notifications", icon: "bell" },
@@ -87,10 +89,15 @@ export function TenantShell({
               {icons.bell}
               {unread > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">{unread}</span>}
             </Link>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">{userName.charAt(0).toUpperCase()}</span>
-            <form action={logout} className="lg:hidden">
-              <button className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">Sign out</button>
-            </form>
+            <ProfileMenu
+              name={userName}
+              role="Tenant"
+              items={[
+                { href: "/tenant/profile", label: "Profile & documents", icon: "👤" },
+                { href: "/tenant/notifications", label: "Notifications", icon: "🔔" },
+                { href: "/tenant/lease", label: "My lease", icon: "📄" },
+              ]}
+            />
           </div>
         </header>
 
@@ -120,6 +127,7 @@ const icons = {
   card: (<svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>),
   wrench: (<svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.7 2.7-2-2 2.7-2.7z" /></svg>),
   chat: (<svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>),
+  messages: (<svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>),
   doc: (<svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>),
   star: (<svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>),
   bell: (<svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0" /></svg>),

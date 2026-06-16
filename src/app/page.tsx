@@ -303,6 +303,34 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ===================== VIEW PROPERTIES CTA ===================== */}
+      <section className="mx-auto max-w-7xl px-5 pt-20 sm:px-8">
+        <Reveal>
+          <Link
+            href="/listings"
+            className="group flex flex-col items-center justify-between gap-6 overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 to-sky-500 p-8 shadow-xl shadow-blue-600/20 transition-all hover:shadow-2xl hover:shadow-blue-600/30 sm:flex-row sm:p-10"
+          >
+            <div className="flex items-center gap-5">
+              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/15 backdrop-blur transition-transform duration-300 group-hover:scale-110">
+                <svg className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 21h18M6 21V7l6-4 6 4v14M9 21v-5h6v5M9 11h.01M15 11h.01" />
+                </svg>
+              </span>
+              <div className="text-center sm:text-left">
+                <h2 className="text-2xl font-extrabold text-white sm:text-3xl">Looking for a place to rent?</h2>
+                <p className="mt-1 text-sm text-blue-50 sm:text-base">
+                  Browse verified properties and get instantly matched to your budget, location &amp; must-haves.
+                </p>
+              </div>
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm font-bold text-blue-700 shadow-md transition-transform group-hover:-translate-y-0.5">
+              🏠 View Properties
+              <span className="transition-transform group-hover:translate-x-1">→</span>
+            </span>
+          </Link>
+        </Reveal>
+      </section>
+
       {/* ===================== WHAT IS A TMS ===================== */}
       <section id="what" className="scroll-anchor mx-auto max-w-7xl px-5 py-24 sm:px-8">
         <div className="grid items-center gap-14 lg:grid-cols-2">

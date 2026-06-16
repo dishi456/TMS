@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/auth";
 import { Logo } from "@/components/Logo";
+import { ProfileMenu } from "@/components/ProfileMenu";
 
 type NavItem = { href: string; label: string; icon: keyof typeof icons; mobile?: boolean };
 
@@ -111,16 +112,15 @@ export function AdminShell({
               {icons.bell}
               {unread > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">{unread}</span>}
             </Link>
-            <span className="hidden text-sm text-slate-600 sm:block">{userName}</span>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
-              {userName.charAt(0).toUpperCase()}
-            </span>
-            {/* Sign out in header for mobile (sidebar has it on desktop) */}
-            <form action={logout} className="lg:hidden">
-              <button className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">
-                Sign out
-              </button>
-            </form>
+            <ProfileMenu
+              name={userName}
+              role="Master Admin"
+              items={[
+                { href: "/master-admin/account", label: "Account & password", icon: "⚙️" },
+                { href: "/master-admin/notifications", label: "Notifications", icon: "🔔" },
+                { href: "/master-admin/activity", label: "Activity log", icon: "📋" },
+              ]}
+            />
           </div>
         </header>
 
