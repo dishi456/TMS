@@ -1,9 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Logo } from "@/components/Logo";
+import { SiteFooter } from "@/components/SiteFooter";
 import { Nav } from "./_landing/Nav";
 import { Reveal } from "./_landing/Reveal";
 import { PurchaseForm } from "./_landing/PurchaseForm";
+import { HeroShowcase } from "./_landing/HeroShowcase";
+import { Faq } from "./_landing/Faq";
+import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
   title: "Modern Tenant & Property Management",
@@ -30,62 +33,6 @@ const CAPABILITIES = [
   "Role-based Access",
 ];
 
-const PORTALS = [
-  {
-    icon: "👑",
-    name: "Master Admin",
-    tag: "Total control",
-    gradient: "from-violet-500 to-indigo-600",
-    ring: "group-hover:shadow-indigo-500/40",
-    blurb:
-      "The command centre for the whole platform — oversee every landlord, tenant, property and transaction.",
-    features: [
-      "Platform-wide dashboard: revenue, occupancy, dues & ratings",
-      "Approve & verify landlords, properties and ownership documents",
-      "Create, verify, suspend or remove any user",
-      "Oversee all leases, payments, refunds & financial reports",
-      "Assign and track maintenance across the platform",
-      "Moderate reviews — flag, remove or suspend privileges",
-      "Full activity & audit trail of every action",
-    ],
-  },
-  {
-    icon: "🏢",
-    name: "Landlord Portal",
-    tag: "Run your portfolio",
-    gradient: "from-blue-500 to-cyan-500",
-    ring: "group-hover:shadow-blue-500/40",
-    blurb:
-      "Everything a property owner needs to manage units, tenants and rent — scoped to only their own properties.",
-    features: [
-      "Portfolio dashboard with lease-expiry & payment alerts",
-      "Add & edit properties, units, amenities and deposits",
-      "Onboard tenants and assign them to units",
-      "Create leases, upload signed contracts, renew & terminate",
-      "Generate invoices, send reminders, export rent reports",
-      "Approve, reject & assign maintenance to technicians",
-      "Respond to complaints and rate tenants after lease end",
-    ],
-  },
-  {
-    icon: "🏠",
-    name: "Tenant Portal",
-    tag: "Renting made easy",
-    gradient: "from-emerald-500 to-teal-500",
-    ring: "group-hover:shadow-emerald-500/40",
-    blurb:
-      "A simple, mobile-friendly home for tenants to pay rent, raise requests and stay informed.",
-    features: [
-      "Personal dashboard: residence, dues, payments & rating",
-      "Pay rent online via UPI, cards or net banking",
-      "Download receipts and view full payment history",
-      "Raise maintenance requests with photos & priority",
-      "Submit complaints and reopen them if needed",
-      "View lease details and manage profile & documents",
-      "Rate landlords and get real-time notifications",
-    ],
-  },
-];
 
 const FEATURES = [
   { icon: "🔐", title: "Secure Auth & RBAC", desc: "Role-based access keeps every portal scoped to exactly the right data." },
@@ -100,13 +47,6 @@ const FEATURES = [
   { icon: "📊", title: "Reports & Analytics", desc: "Operational and financial insights with one-click CSV exports." },
   { icon: "🗂️", title: "Document Vault", desc: "Securely store leases, IDs and ownership proofs against each record." },
   { icon: "🛡️", title: "Audit Logging", desc: "Every meaningful action is recorded for accountability and compliance." },
-];
-
-const STEPS = [
-  { n: "01", title: "Sign up & get verified", desc: "Create your landlord account; the Master Admin verifies your documents." },
-  { n: "02", title: "Add properties & tenants", desc: "List units, onboard tenants and link them with digital lease agreements." },
-  { n: "03", title: "Collect rent online", desc: "Auto-generated invoices and online payments keep cash flow on time." },
-  { n: "04", title: "Manage & grow", desc: "Handle maintenance, complaints and reviews from one clean dashboard." },
 ];
 
 const PRICING = [
@@ -143,9 +83,35 @@ const PRICING = [
 // Page
 // ---------------------------------------------------------------------------
 
-export default function Landing() {
+export const dynamic = "force-dynamic";
+
+export default async function Landing() {
+  // Real property photos power the rotating hero showcase.
+  const photos = await prisma.document.findMany({
+    where: { type: "PHOTO", propertyId: { not: null }, property: { approved: true, listedPublic: true } },
+    select: { id: true },
+    orderBy: { createdAt: "desc" },
+    take: 6,
+  });
+  const heroPhotoIds = photos.map((p) => p.id);
+
   return (
-    <div className="relative w-full overflow-x-hidden bg-white text-slate-800">
+    <div className="relative w-full overflow-x-hidden text-slate-800">
+      {/* Themed page backdrop — soft blue aurora behind every section */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
+        <div className="absolute inset-0 bg-gradient-to-b from-sky-50 via-white to-blue-50/70" />
+        <div className="absolute -left-40 -top-40 h-[30rem] w-[30rem] rounded-full bg-blue-200/30 blur-3xl" />
+        <div className="absolute -right-48 top-1/3 h-[34rem] w-[34rem] rounded-full bg-cyan-200/25 blur-3xl" />
+        <div className="absolute bottom-10 left-1/4 h-[28rem] w-[28rem] rounded-full bg-violet-200/20 blur-3xl" />
+        <div
+          className="absolute inset-0 opacity-[0.035]"
+          style={{
+            backgroundImage: "linear-gradient(#1e293b 1px, transparent 1px), linear-gradient(90deg, #1e293b 1px, transparent 1px)",
+            backgroundSize: "46px 46px",
+          }}
+        />
+      </div>
+
       <Nav />
 
       {/* ===================== HERO ===================== */}
@@ -225,65 +191,8 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* Hero artwork — faux dashboard */}
-          <div className="animate-fade-up relative [--delay:200ms]">
-            <div className="animate-float relative mx-auto max-w-md">
-              <div className="absolute -inset-4 -z-10 rounded-[2rem] bg-gradient-to-tr from-blue-500/20 to-cyan-400/20 blur-2xl" />
-              <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-2xl shadow-blue-900/10 backdrop-blur">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2.5 w-2.5 rounded-full bg-red-400" />
-                    <div className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-                    <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                  </div>
-                  <span className="text-xs font-medium text-slate-400">Lease Lord · Dashboard</span>
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  {[
-                    { l: "Monthly Revenue", v: "$42k", c: "from-blue-500 to-cyan-500" },
-                    { l: "Occupied", v: "86%", c: "from-emerald-500 to-teal-500" },
-                    { l: "Pending Rent", v: "$8.4k", c: "from-amber-500 to-orange-500" },
-                    { l: "Avg Rating", v: "4.7★", c: "from-violet-500 to-indigo-500" },
-                  ].map((t) => (
-                    <div key={t.l} className="rounded-2xl border border-slate-100 bg-slate-50/80 p-3">
-                      <p className="text-[11px] text-slate-500">{t.l}</p>
-                      <p className={`mt-0.5 bg-gradient-to-r ${t.c} bg-clip-text text-lg font-extrabold text-transparent`}>
-                        {t.v}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* mini chart */}
-                <div className="mt-4 rounded-2xl border border-slate-100 bg-white p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="text-xs font-semibold text-slate-600">Rent collection</p>
-                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">+12%</span>
-                  </div>
-                  <div className="flex h-24 items-end gap-2">
-                    {[45, 62, 38, 72, 55, 84, 68, 92].map((h, i) => (
-                      <div
-                        key={i}
-                        className="animate-bar flex-1 rounded-t-md bg-gradient-to-t from-blue-600 to-cyan-400"
-                        style={{ height: `${h}%`, ["--bar-delay" as string]: `${i * 90}ms` }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* floating chips */}
-              <div className="animate-float-slow absolute -left-8 top-20 hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-xl sm:block">
-                <p className="text-[11px] text-slate-400">Rent paid</p>
-                <p className="text-sm font-bold text-emerald-600">✓ $2,500</p>
-              </div>
-              <div className="animate-float absolute -right-6 bottom-16 hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-xl [animation-delay:-3s] sm:block">
-                <p className="text-[11px] text-slate-400">New review</p>
-                <p className="text-sm font-bold text-amber-500">★★★★★</p>
-              </div>
-            </div>
-          </div>
+          {/* Hero artwork — dynamic property showcase */}
+          <HeroShowcase photoIds={heroPhotoIds} />
         </div>
       </section>
 
@@ -356,12 +265,12 @@ export default function Landing() {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <a
-                href="#how"
+              <Link
+                href="/tour/landlord"
                 className="rounded-full bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition-all hover:-translate-y-0.5 hover:bg-blue-700"
               >
                 See how it works
-              </a>
+              </Link>
               <Link
                 href="/login"
                 className="rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-bold text-slate-700 transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:text-blue-700"
@@ -395,48 +304,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ===================== PORTALS ===================== */}
-      <section id="portals" className="scroll-anchor mx-auto max-w-7xl px-5 py-24 sm:px-8">
-        <Reveal as="div" className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-blue-600">Three portals, one platform</p>
-          <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-            Built for everyone in the rental journey
-          </h2>
-          <p className="mt-4 text-slate-600">
-            Each role gets a focused experience with secure, role-based access —
-            no clutter, no overreach.
-          </p>
-        </Reveal>
-
-        <div className="mt-14 grid gap-7 lg:grid-cols-3">
-          {PORTALS.map((p, i) => (
-            <Reveal key={p.name} delay={i * 120}>
-              <div className={`card-lift group h-full rounded-3xl border border-slate-200 bg-white p-7 shadow-sm ${p.ring}`}>
-                <div className={`mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${p.gradient} text-3xl shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6`}>
-                  {p.icon}
-                </div>
-                <p className={`bg-gradient-to-r ${p.gradient} bg-clip-text text-xs font-bold uppercase tracking-wider text-transparent`}>
-                  {p.tag}
-                </p>
-                <h3 className="mt-1 text-xl font-bold text-slate-900">{p.name}</h3>
-                <p className="mt-2 text-sm text-slate-500">{p.blurb}</p>
-
-                <ul className="mt-5 space-y-2.5">
-                  {p.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2.5 text-sm text-slate-600">
-                      <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${p.gradient} text-[10px] font-bold text-white`}>
-                        ✓
-                      </span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
       {/* ===================== FEATURES ===================== */}
       <section id="features" className="scroll-anchor relative bg-slate-50/70 py-24">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
@@ -467,38 +334,12 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ===================== HOW IT WORKS ===================== */}
-      <section id="how" className="scroll-anchor mx-auto max-w-7xl px-5 py-24 sm:px-8">
-        <Reveal as="div" className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-blue-600">How it works</p>
-          <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-            Up and running in four steps
-          </h2>
-        </Reveal>
-
-        <div className="relative mt-16 grid gap-8 md:grid-cols-4">
-          {/* connecting line */}
-          <div className="absolute left-0 right-0 top-7 hidden h-px bg-gradient-to-r from-transparent via-blue-300 to-transparent md:block" />
-          {STEPS.map((s, i) => (
-            <Reveal key={s.n} delay={i * 120}>
-              <div className="relative text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-lg font-extrabold text-blue-600 shadow-lg ring-1 ring-slate-200 transition-transform duration-300 hover:scale-110">
-                  {s.n}
-                </div>
-                <h3 className="mt-4 font-bold text-slate-900">{s.title}</h3>
-                <p className="mt-1.5 text-sm text-slate-500">{s.desc}</p>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
       {/* ===================== STATS BAND ===================== */}
       <section className="relative overflow-hidden py-20">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-blue-600 via-blue-600 to-cyan-600" />
-        <div className="animate-blob absolute -top-20 left-10 -z-10 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
-        <div className="animate-blob absolute -bottom-20 right-10 -z-10 h-72 w-72 rounded-full bg-white/10 blur-3xl [animation-delay:-8s]" />
-        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-8 px-5 text-center text-white sm:px-8 md:grid-cols-4">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-blue-600 to-cyan-600" />
+        <div className="animate-blob pointer-events-none absolute -top-20 left-10 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+        <div className="animate-blob pointer-events-none absolute -bottom-20 right-10 h-72 w-72 rounded-full bg-white/10 blur-3xl [animation-delay:-8s]" />
+        <div className="relative mx-auto grid max-w-6xl grid-cols-2 gap-8 px-5 text-center text-white sm:px-8 md:grid-cols-4">
           {[
             { k: "3", v: "Dedicated portals" },
             { k: "4", v: "Payment methods" },
@@ -508,6 +349,38 @@ export default function Landing() {
             <Reveal key={s.v} delay={i * 100}>
               <p className="text-4xl font-extrabold sm:text-5xl">{s.k}</p>
               <p className="mt-1 text-sm text-blue-100">{s.v}</p>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* ===================== TESTIMONIALS ===================== */}
+      <section className="mx-auto max-w-7xl px-5 py-24 sm:px-8">
+        <Reveal as="div" className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-semibold uppercase tracking-wider text-blue-600">Loved by both sides</p>
+          <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+            Landlords and tenants, finally on the same page
+          </h2>
+        </Reveal>
+
+        <div className="mt-14 grid gap-6 md:grid-cols-3">
+          {[
+            { q: "Rent collection used to eat my weekends. Now invoices go out automatically and I see every payment, lease and request in one dashboard.", n: "Michael Anderson", r: "Landlord · 12 units", c: "from-blue-500 to-cyan-500" },
+            { q: "Paying rent and raising a maintenance request takes seconds. No more chasing my landlord on the phone — and I have every receipt.", n: "Emily Davis", r: "Tenant", c: "from-emerald-500 to-teal-500" },
+            { q: "As an admin I get full visibility — approvals, payments, disputes — and an audit trail for everything. Onboarding landlords is effortless.", n: "Sarah Johnson", r: "Master Admin", c: "from-violet-500 to-indigo-500" },
+          ].map((t, i) => (
+            <Reveal key={t.n} delay={i * 120}>
+              <figure className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-blue-600/10">
+                <div className="text-amber-400">★★★★★</div>
+                <blockquote className="mt-3 flex-1 text-sm leading-relaxed text-slate-600">“{t.q}”</blockquote>
+                <figcaption className="mt-5 flex items-center gap-3 border-t border-slate-100 pt-4">
+                  <span className={`flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br ${t.c} text-sm font-bold text-white`}>{t.n.charAt(0)}</span>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">{t.n}</p>
+                    <p className="text-xs text-slate-400">{t.r}</p>
+                  </div>
+                </figcaption>
+              </figure>
             </Reveal>
           ))}
         </div>
@@ -573,6 +446,18 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ===================== FAQ ===================== */}
+      <section className="mx-auto max-w-7xl px-5 py-24 sm:px-8">
+        <Reveal as="div" className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-semibold uppercase tracking-wider text-blue-600">FAQ</p>
+          <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+            Questions, answered
+          </h2>
+          <p className="mt-4 text-slate-600">Everything you need to know before getting started.</p>
+        </Reveal>
+        <Faq />
+      </section>
+
       {/* ===================== BUY / CTA FORM ===================== */}
       <section id="buy" className="scroll-anchor relative overflow-hidden py-24">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-b from-slate-50 to-white" />
@@ -622,23 +507,7 @@ export default function Landing() {
       </section>
 
       {/* ===================== FOOTER ===================== */}
-      <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-5 py-10 sm:px-8 md:flex-row">
-          <div className="flex items-center gap-3">
-            <Logo className="h-8" />
-          </div>
-          <nav className="flex flex-wrap items-center justify-center gap-6 text-sm text-slate-500">
-            <a href="#portals" className="hover:text-slate-900">Portals</a>
-            <a href="#features" className="hover:text-slate-900">Features</a>
-            <a href="#pricing" className="hover:text-slate-900">Pricing</a>
-            <a href="#buy" className="hover:text-slate-900">Buy</a>
-            <Link href="/login" className="hover:text-slate-900">Sign in</Link>
-          </nav>
-          <p className="text-xs text-slate-400">
-            © {new Date().getFullYear()} Lease Lord
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

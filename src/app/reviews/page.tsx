@@ -1,7 +1,9 @@
-import Link from "next/link";
 import type { Metadata } from "next";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { Logo } from "@/components/Logo";
+import { roleHome, type Role } from "@/lib/roles";
+import { Nav } from "@/app/_landing/Nav";
+import { SiteFooter } from "@/components/SiteFooter";
 import { formatNumber } from "@/lib/format";
 import { ReviewsExplorer, type ReviewItem } from "./ReviewsExplorer";
 
@@ -67,16 +69,13 @@ export default async function PublicReviewsPage() {
   ]);
 
   const totalCount = llAgg._count + tnAgg._count;
+  const session = await auth();
+  const home = session?.user ? (roleHome[session.user.role as Role] ?? "/account") : null;
 
   return (
-    <main className="min-h-dvh bg-slate-50">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link href="/"><Logo className="h-9" /></Link>
-          <Link href="/login" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700">Sign in</Link>
-        </div>
-      </header>
-
+    <div className="flex min-h-dvh flex-col bg-slate-50">
+    <Nav variant="solid" account={home} />
+    <main className="flex-1">
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-slate-200 bg-gradient-to-br from-blue-600 via-blue-600 to-sky-500">
         <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
@@ -106,5 +105,7 @@ export default async function PublicReviewsPage() {
         />
       </div>
     </main>
+    <SiteFooter />
+    </div>
   );
 }

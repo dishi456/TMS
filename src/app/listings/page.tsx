@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { roleHome, type Role } from "@/lib/roles";
-import { Logo } from "@/components/Logo";
+import { SiteFooter } from "@/components/SiteFooter";
+import { Nav } from "@/app/_landing/Nav";
 import { ListingsBrowser, type ListingItem } from "./ListingsBrowser";
-import { WishlistButton } from "./WishlistButton";
 
 export const metadata: Metadata = {
   title: "Available Properties",
@@ -21,7 +21,19 @@ function cityOf(address: string): string {
   return parts[0] ?? address;
 }
 
-export default async function ListingsPage() {
+const TYPES = ["APARTMENT", "HOUSE", "ROOM", "COMMERCIAL", "OTHER"];
+
+export default async function ListingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string; city?: string; available?: string }>;
+}) {
+  const sp = await searchParams;
+  const initial = {
+    type: TYPES.includes((sp.type ?? "").toUpperCase()) ? (sp.type ?? "").toUpperCase() : undefined,
+    city: sp.city || undefined,
+    available: sp.available === "1",
+  };
   const session = await auth();
   const home = session?.user ? (roleHome[session.user.role as Role] ?? "/account") : null;
   // Show properties that are available now, OR occupied-but-on-notice (a tenant
@@ -80,23 +92,9 @@ export default async function ListingsPage() {
   });
 
   return (
-    <main className="min-h-dvh bg-slate-50">
-      {/* Top app bar */}
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
-          <Link href="/"><Logo className="h-9" /></Link>
-          <div className="flex items-center gap-1 text-sm sm:gap-3">
-            <Link href="/reviews" className="rounded-lg px-2.5 py-2 font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">Reviews</Link>
-            <WishlistButton />
-            {home ? (
-              <Link href={home} className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">My account</Link>
-            ) : (
-              <Link href="/login" className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">Sign in</Link>
-            )}
-          </div>
-        </div>
-      </header>
-
+    <div className="flex min-h-dvh flex-col bg-slate-50">
+    <Nav variant="solid" account={home} />
+    <main className="flex-1">
       <div className="mx-auto max-w-7xl px-4 py-6">
         {/* Breadcrumb + heading */}
         <p className="text-xs text-slate-400"><Link href="/" className="hover:text-slate-600">Home</Link> / Properties</p>
@@ -109,9 +107,11 @@ export default async function ListingsPage() {
         </div>
 
         <div className="mt-5">
-          <ListingsBrowser listings={listings} />
+          <ListingsBrowser listings={listings} initial={initial} />
         </div>
       </div>
     </main>
+    <SiteFooter />
+    </div>
   );
 }

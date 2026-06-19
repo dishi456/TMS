@@ -59,5 +59,5 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
 }
 
 export async function logout() {
-  await signOut({ redirectTo: "/login" });
+  await signOut({ redirectTo: "/" });
 }

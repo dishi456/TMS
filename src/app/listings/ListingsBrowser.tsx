@@ -62,16 +62,18 @@ const CARD_ICON = (
 
 type Sort = "new" | "price_asc" | "price_desc";
 
-export function ListingsBrowser({ listings }: { listings: ListingItem[] }) {
+export type InitialFilters = { type?: string; city?: string; available?: boolean };
+
+export function ListingsBrowser({ listings, initial }: { listings: ListingItem[]; initial?: InitialFilters }) {
   const [q, setQ] = useState("");
-  const [city, setCity] = useState("");
-  const [category, setCategory] = useState(""); // property type
+  const [city, setCity] = useState(initial?.city ?? "");
+  const [category, setCategory] = useState(initial?.type ?? ""); // property type
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [beds, setBeds] = useState<Set<number>>(new Set());
   const [furn, setFurn] = useState<Set<string>>(new Set());
   const [amen, setAmen] = useState<Set<string>>(new Set());
-  const [availableOnly, setAvailableOnly] = useState(false);
+  const [availableOnly, setAvailableOnly] = useState(initial?.available ?? false);
   const [sort, setSort] = useState<Sort>("new");
   const [showSaved, setShowSaved] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false); // mobile
