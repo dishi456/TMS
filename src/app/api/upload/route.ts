@@ -1,8 +1,8 @@
 import { randomUUID } from "crypto";
 import path from "path";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { saveFile } from "@/lib/storage";
+import { sessionOrBearerUser } from "@/lib/mobile-auth";
 
 export const runtime = "nodejs";
 
@@ -12,10 +12,10 @@ const MAX_BYTES = 8 * 1024 * 1024;
 // Saves the file, creates a Document with the right type/links per `purpose`,
 // and returns { id, url }. Each purpose enforces its own ownership check.
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user) return json({ error: "Unauthorized" }, 401);
-  const role = session.user.role;
-  const userId = session.user.id;
+  const me = await sessionOrBearerUser(req);
+  if (!me) return json({ error: "Unauthorized" }, 401);
+  const role = me.role;
+  const userId = me.id;
 
   const form = await req.formData();
   const purpose = String(form.get("purpose") || "");
