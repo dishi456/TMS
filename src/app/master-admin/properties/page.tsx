@@ -33,8 +33,8 @@ export default async function PropertiesPage({
     ...(q
       ? {
           OR: [
-            { name: { contains: q, mode: "insensitive" } },
-            { address: { contains: q, mode: "insensitive" } },
+            { name: { contains: q } },
+            { address: { contains: q } },
           ],
         }
       : {}),

@@ -13,10 +13,10 @@ complaints, and two-way ratings — with three role-based portals in a single ap
 |---|---|
 | Framework | Next.js 16 (App Router, TypeScript) — webpack build |
 | Styling | Tailwind CSS v4 |
-| Database | PostgreSQL + Prisma 6 |
+| Database | MySQL + Prisma 6 |
 | Auth / RBAC | Auth.js v5 (credentials, JWT sessions) + role-aware proxy |
 | PWA | Serwist (service worker, offline cache, Web Push) |
-| Deploy | Docker + docker-compose (app + Postgres) |
+| Deploy | Docker + docker-compose (app + MySQL) |
 
 Planned integrations (env placeholders already in `.env.example`): **Razorpay** (UPI/cards/netbanking),
 **Cloudflare R2** (documents/images), **Resend** (email), **Web Push** (VAPID).
@@ -24,7 +24,7 @@ Planned integrations (env placeholders already in `.env.example`): **Razorpay** 
 ## Local development
 
 ```bash
-# 1. Start Postgres (or use docker compose just for the db)
+# 1. Start MySQL (or use docker compose just for the db)
 #    Update DATABASE_URL in .env if needed.
 
 # 2. Install + generate client
@@ -36,7 +36,7 @@ npm run db:push   # or: npm run db:migrate  (creates a migration)
 npm run db:seed
 
 # 4. Run
-npm run dev       # http://localhost:3000
+npm run dev       # http://localhost:4000
 ```
 
 > Note: the build uses **webpack** (`next build --webpack`) because Serwist v9
@@ -53,11 +53,11 @@ npm run dev       # http://localhost:3000
 ## Production (single VPS)
 
 ```bash
-# Set secrets first (POSTGRES_PASSWORD, AUTH_SECRET) in a .env or shell.
+# Set secrets first (MYSQL_PASSWORD, AUTH_SECRET) in a .env or shell.
 docker compose up -d --build
 ```
 
-This starts Postgres, runs `prisma db push` + seed once, then the app on port 3000.
+This starts MySQL, runs `prisma db push` + seed once, then the app on port 4000.
 Put **Caddy** or **Nginx** in front for HTTPS (required for PWA install + Web Push).
 
 Generate a real auth secret with `npx auth secret`.

@@ -1,52 +1,43 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { requireMobile, json } from "@/lib/mobile-auth";
 import { audit } from "@/lib/audit";
-import { requireMobileUser, json, error } from "@/lib/mobile-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET → ended leases the landlord can rate the tenant on (not yet rated).
+// GET /api/mobile/v1/landlord/reviews -> ratings given + received
 export async function GET(req: Request) {
-  const user = await requireMobileUser(req, ["LANDLORD"]);
-  if (user instanceof Response) return user;
-
-  const leases = await prisma.lease.findMany({
-    where: { landlordId: user.id, status: { in: ["COMPLETED", "EXPIRED", "TERMINATED"] }, ratings: { none: { direction: "LANDLORD_TO_TENANT" } } },
-    orderBy: { endDate: "desc" },
-    select: { id: true, endDate: true, property: { select: { name: true } }, tenant: { select: { fullName: true } } },
-  });
-
-  return json({
-    items: leases.map((l) => ({ leaseId: l.id, endDate: l.endDate.toISOString(), property: l.property.name, tenant: l.tenant.fullName })),
-  });
+  const { user, res } = await requireMobile(req, "LANDLORD");
+  if (res) return res;
+  const [given, received] = await Promise.all([
+    prisma.rating.findMany({ where: { raterId: user.id }, orderBy: { createdAt: "desc" }, include: { ratee: { select: { id: true, fullName: true } }, lease: { select: { property: { select: { name: true } } } } } }),
+    prisma.rating.findMany({ where: { rateeId: user.id, status: "VISIBLE" }, orderBy: { createdAt: "desc" }, include: { rater: { select: { id: true, fullName: true } }, lease: { select: { property: { select: { name: true } } } } } }),
+  ]);
+  return json({ given, received });
 }
 
-const criteria = z.object({
-  rentDiscipline: z.coerce.number().int().min(1).max(5),
-  propertyMaintenance: z.coerce.number().int().min(1).max(5),
-  communication: z.coerce.number().int().min(1).max(5),
-  ruleCompliance: z.coerce.number().int().min(1).max(5),
-  conduct: z.coerce.number().int().min(1).max(5),
-});
+const star = z.coerce.number().int().min(1).max(5);
 const schema = z.object({
   leaseId: z.string().min(1),
-  stars: z.coerce.number().int().min(1).max(5),
-  criteria,
+  stars: star,
   feedback: z.string().trim().optional(),
   recommend: z.boolean().optional(),
+  criteria: z.object({ rentDiscipline: star, propertyMaintenance: star, communication: star, ruleCompliance: star, conduct: star }),
 });
 
-// POST → rate a tenant (LANDLORD_TO_TENANT) after the lease ends.
+// POST /api/mobile/v1/landlord/reviews -> rate the tenant (lease must have ended)
 export async function POST(req: Request) {
-  const user = await requireMobileUser(req, ["LANDLORD"]);
-  if (user instanceof Response) return user;
+  const { user, res } = await requireMobile(req, "LANDLORD");
+  if (res) return res;
   const parsed = schema.safeParse(await req.json().catch(() => ({})));
-  if (!parsed.success) return error(parsed.error.issues[0].message, 400);
+  if (!parsed.success) return json({ error: parsed.error.issues[0].message }, 400);
   const d = parsed.data;
 
-  const lease = await prisma.lease.findFirst({ where: { id: d.leaseId, landlordId: user.id, status: { in: ["COMPLETED", "EXPIRED", "TERMINATED"] } } });
-  if (!lease) return error("You can only rate the tenant after the lease has ended.", 403);
+  const lease = await prisma.lease.findFirst({
+    where: { id: d.leaseId, landlordId: user.id, status: { in: ["COMPLETED", "EXPIRED", "TERMINATED"] } },
+  });
+  if (!lease) return json({ error: "You can only rate tenants after the lease has ended." }, 400);
 
   await prisma.rating.upsert({
     where: { leaseId_direction: { leaseId: d.leaseId, direction: "LANDLORD_TO_TENANT" } },
@@ -57,5 +48,5 @@ export async function POST(req: Request) {
     },
   });
   await audit({ actorId: user.id, action: "tenant.rate", entity: "Rating", entityId: d.leaseId });
-  return json({ ok: true }, 201);
+  return json({ ok: true });
 }

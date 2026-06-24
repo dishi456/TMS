@@ -1,37 +1,23 @@
 import { prisma } from "@/lib/prisma";
-import { requireMobileUser, json } from "@/lib/mobile-auth";
+import { requireMobile, json } from "@/lib/mobile-auth";
+import { toStrArr } from "@/lib/json";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET /api/mobile/v1/landlord/maintenance?status= → requests across the landlord's properties.
+// GET /api/mobile/v1/landlord/maintenance -> requests across this landlord's properties
 export async function GET(req: Request) {
-  const user = await requireMobileUser(req, ["LANDLORD"]);
-  if (user instanceof Response) return user;
-  const status = new URL(req.url).searchParams.get("status") || undefined;
-
+  const { user, res } = await requireMobile(req, "LANDLORD");
+  if (res) return res;
   const items = await prisma.maintenanceRequest.findMany({
-    where: { property: { landlordId: user.id }, ...(status ? { status: status as never } : {}) },
-    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-    take: 100,
-    select: {
-      id: true, title: true, status: true, priority: true, assignedTo: true, images: true, createdAt: true,
-      property: { select: { name: true } },
-      tenant: { select: { fullName: true } },
-    },
+    where: { property: { landlordId: user.id } },
+    orderBy: { createdAt: "desc" },
+    include: { property: { select: { id: true, name: true } }, tenant: { select: { id: true, fullName: true } } },
   });
-
   return json({
-    items: items.map((m) => ({
-      id: m.id,
-      title: m.title,
-      status: m.status,
-      priority: m.priority,
-      assignedTo: m.assignedTo,
-      images: m.images,
-      createdAt: m.createdAt.toISOString(),
-      property: m.property.name,
-      tenant: m.tenant.fullName,
+    requests: items.map((r) => ({
+      id: r.id, title: r.title, description: r.description, priority: r.priority, status: r.status,
+      assignedTo: r.assignedTo, images: toStrArr(r.images), property: r.property, tenant: r.tenant, createdAt: r.createdAt,
     })),
   });
 }

@@ -1,31 +1,26 @@
 import { prisma } from "@/lib/prisma";
-import { requireMobileUser, json } from "@/lib/mobile-auth";
+import { requireMobile, json } from "@/lib/mobile-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET /api/mobile/v1/landlord/complaints → complaints on the landlord's properties.
+// GET /api/mobile/v1/landlord/complaints -> complaints from this landlord's tenants/properties
 export async function GET(req: Request) {
-  const user = await requireMobileUser(req, ["LANDLORD"]);
-  if (user instanceof Response) return user;
-
+  const { user, res } = await requireMobile(req, "LANDLORD");
+  if (res) return res;
   const items = await prisma.complaint.findMany({
-    where: { property: { landlordId: user.id } },
-    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-    select: {
-      id: true, subject: true, status: true, createdAt: true,
-      property: { select: { name: true } }, tenant: { select: { fullName: true } },
+    where: { OR: [{ property: { landlordId: user.id } }, { tenant: { landlordId: user.id } }] },
+    orderBy: { createdAt: "desc" },
+    include: {
+      property: { select: { id: true, name: true } },
+      tenant: { select: { id: true, fullName: true } },
+      _count: { select: { messages: true } },
     },
   });
-
   return json({
-    items: items.map((c) => ({
-      id: c.id,
-      subject: c.subject,
-      status: c.status,
-      createdAt: c.createdAt.toISOString(),
-      property: c.property?.name ?? null,
-      tenant: c.tenant.fullName,
+    complaints: items.map((c) => ({
+      id: c.id, subject: c.subject, description: c.description, status: c.status,
+      property: c.property, tenant: c.tenant, messageCount: c._count.messages, createdAt: c.createdAt,
     })),
   });
 }

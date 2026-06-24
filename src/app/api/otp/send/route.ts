@@ -3,7 +3,7 @@ import { sendOtp, type OtpPurpose } from "@/lib/otp";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED: OtpPurpose[] = ["chat", "register"];
+const ALLOWED: OtpPurpose[] = ["chat", "register", "reset"];
 
 // Public: request an email verification code. "login" is NOT allowed here —
 // login OTPs are only issued after a password check (see auth actions).

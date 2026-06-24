@@ -116,7 +116,7 @@ export async function runScheduledTasks(): Promise<AutomationResult> {
     const dueDay = new Date(inv.dueDate.getFullYear(), inv.dueDate.getMonth(), inv.dueDate.getDate());
     const daysUntilDue = Math.round((dueDay.getTime() - startOfToday.getTime()) / DAY_MS);
     const m = milestoneFor(daysUntilDue);
-    if (!m || inv.remindersSent.includes(m)) continue;
+    if (!m || (inv.remindersSent as string[]).includes(m)) continue;
 
     const amount = Number(inv.amount);
     const property = inv.lease.property.name;
@@ -130,7 +130,7 @@ export async function runScheduledTasks(): Promise<AutomationResult> {
     });
     await sendSms(inv.lease.tenant.phone, copy.sms);
 
-    await prisma.invoice.update({ where: { id: inv.id }, data: { remindersSent: { push: m } } });
+    await prisma.invoice.update({ where: { id: inv.id }, data: { remindersSent: [...(inv.remindersSent as string[]), m] } });
     byMilestone[m]++;
   }
 

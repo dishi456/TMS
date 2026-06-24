@@ -1,46 +1,33 @@
 import bcrypt from "bcryptjs";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { signMobileToken, json } from "@/lib/mobile-auth";
 import { consumeVerifyToken } from "@/lib/otp";
-import { signMobileToken, json, error } from "@/lib/mobile-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const schema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-  otp: z.string().optional(), // verifyToken from email-OTP step (when AUTH_LOGIN_OTP=on)
-});
-
-// POST /api/mobile/v1/auth/login → { token, user }
+// POST /api/mobile/v1/auth/login  { email, password, otp? } -> { token, user }
 export async function POST(req: Request) {
-  const parsed = schema.safeParse(await req.json().catch(() => ({})));
-  if (!parsed.success) return error("Email and password are required.", 400);
-  const { email, password, otp } = parsed.data;
+  const { email, password, otp } = await req.json().catch(() => ({}));
+  const mail = String(email ?? "").trim().toLowerCase();
+  const pass = String(password ?? "");
+  if (!mail || !pass) return json({ error: "Email and password are required." }, 400);
 
-  const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-  // PENDING users may sign in; only SUSPENDED are denied. Use a generic message.
-  if (!user || user.status === "SUSPENDED") return error("Invalid email or password.", 401);
+  const user = await prisma.user.findUnique({ where: { email: mail } });
+  if (!user || user.status === "SUSPENDED") return json({ error: "Invalid email or password." }, 401);
 
-  const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return error("Invalid email or password.", 401);
+  const ok = await bcrypt.compare(pass, user.passwordHash);
+  if (!ok) return json({ error: "Invalid email or password." }, 401);
 
-  // Optional two-factor email OTP, mirroring the web (src/auth.ts).
+  // Optional 2nd factor (only when AUTH_LOGIN_OTP=on; app must call /auth/otp first).
   if (process.env.AUTH_LOGIN_OTP === "on") {
-    const otpOk = await consumeVerifyToken(email, otp ?? "", "login");
-    if (!otpOk) return error("Email verification required.", 401);
+    const okOtp = await consumeVerifyToken(mail, String(otp ?? ""), "login");
+    if (!okOtp) return json({ error: "Email OTP required (AUTH_LOGIN_OTP is on)." }, 401);
   }
 
-  const token = signMobileToken(user.id, user.role);
+  const token = await signMobileToken({ id: user.id, role: user.role });
   return json({
     token,
-    user: {
-      id: user.id,
-      fullName: user.fullName,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-    },
+    user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, status: user.status },
   });
 }

@@ -1,25 +1,23 @@
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireMobileUser, json, error } from "@/lib/mobile-auth";
+import { requireMobile, json } from "@/lib/mobile-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// POST /api/mobile/v1/tenant/complaints/{id}/messages { body } → reply.
+// POST /api/mobile/v1/tenant/complaints/{id}/messages  { body } -> reply to a complaint
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const user = await requireMobileUser(req, ["TENANT"]);
-  if (user instanceof Response) return user;
+  const { user, res } = await requireMobile(req, "TENANT");
+  if (res) return res;
   const { id } = await ctx.params;
+  const { body } = await req.json().catch(() => ({}));
+  const text = String(body ?? "").trim();
+  if (!text) return json({ error: "Message is empty." }, 400);
 
-  const parsed = z.object({ body: z.string().min(1) }).safeParse(await req.json().catch(() => ({})));
-  if (!parsed.success) return error("Message body is required.", 400);
-
-  const complaint = await prisma.complaint.findFirst({ where: { id, tenantId: user.id }, select: { id: true } });
-  if (!complaint) return error("Not found", 404);
+  const owns = await prisma.complaint.findFirst({ where: { id, tenantId: user.id }, select: { id: true } });
+  if (!owns) return json({ error: "Not found." }, 404);
 
   const msg = await prisma.complaintMessage.create({
-    data: { complaintId: id, authorId: user.id, body: parsed.data.body.trim().slice(0, 2000) },
+    data: { complaintId: id, authorId: user.id, body: text.slice(0, 2000) },
   });
-
-  return json({ id: msg.id, createdAt: msg.createdAt.toISOString() }, 201);
+  return json({ ok: true, id: msg.id, createdAt: msg.createdAt });
 }

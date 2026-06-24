@@ -1,12 +1,18 @@
 // Tenant Management System — data model derived from the SRS.
-// Postgres + Prisma. Three roles share one User table; data is scoped by role.
+// MySQL + Prisma. Three roles share one User table; data is scoped by role.
+//
+// MySQL notes vs the original Postgres model:
+//  - MySQL has no array type, so the former String[] fields (amenities,
+//    remindersSent, images) are stored as JSON arrays.
+//  - MySQL's default String maps to VARCHAR(191); free-text and URL fields are
+//    marked @db.Text so long values are never truncated/rejected.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -136,7 +142,7 @@ model User {
   phone            String?
   governmentId     String?
   emergencyContact String?
-  avatarUrl        String?
+  avatarUrl        String?    @db.Text
   lastSeenAt           DateTime? // presence heartbeat for chat "online" status
   chatContactConfirmed Boolean   @default(false) // tenant confirmed name/email/phone before chatting
 
@@ -201,8 +207,8 @@ model Property {
 
   name             String
   type             PropertyType       @default(APARTMENT)
-  address          String
-  description      String?
+  address          String             @db.Text
+  description      String?            @db.Text
   rooms            Int?               // bedrooms
   bathrooms        Int?               // washrooms
   balconies        Int?
@@ -223,7 +229,7 @@ model Property {
   listedBy           ListedBy         @default(OWNER)
   rentAmount       Decimal            @db.Decimal(12, 2)
   securityDeposit  Decimal            @db.Decimal(12, 2) @default(0)
-  amenities        String[]           @default([])
+  amenities        Json               @default("[]") // string[] of amenity labels (MySQL has no array type)
   availability     AvailabilityStatus @default(AVAILABLE)
   numberOfUnits    Int                @default(1)
   noticePeriodDays Int                @default(30) // default notice-to-vacate period for this property
@@ -282,7 +288,7 @@ model InquiryMessage {
   inquiry        PropertyInquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
   inquiryId      String
   fromGuest      Boolean // true = visitor, false = landlord
-  body           String
+  body           String          @db.Text
   readByLandlord Boolean         @default(false)
   readByGuest    Boolean         @default(false)
   createdAt      DateTime        @default(now())
@@ -297,7 +303,7 @@ model Message {
   senderId    String
   recipient   User     @relation("ReceivedMessages", fields: [recipientId], references: [id])
   recipientId String
-  body        String
+  body        String   @db.Text
   read        Boolean  @default(false)
   createdAt   DateTime @default(now())
 
@@ -315,7 +321,7 @@ model Visit {
   email       String
   phone       String?
   preferredAt DateTime
-  message     String?
+  message     String?     @db.Text
   status      VisitStatus @default(PENDING)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -357,8 +363,8 @@ model Lease {
   monthlyRent       Decimal     @db.Decimal(12, 2)
   securityDeposit   Decimal     @db.Decimal(12, 2) @default(0)
   maintenanceFee    Decimal?    @db.Decimal(12, 2) // optional monthly maintenance charge
-  terms             String?
-  signedContractUrl String?
+  terms             String?     @db.Text
+  signedContractUrl String?     @db.Text
   status            LeaseStatus @default(DRAFT)
 
   // Notice-to-vacate / terminate (either party may give notice)
@@ -395,7 +401,7 @@ model Invoice {
   payments    Payment[]
 
   // Rent-reminder milestones already sent (e.g. "T-7","T-3","DUE","OVERDUE") — prevents duplicate reminders.
-  remindersSent String[]    @default([])
+  remindersSent Json        @default("[]") // string[] of milestone codes (MySQL has no array type)
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -417,11 +423,11 @@ model Payment {
   status           PaymentStatus @default(PENDING)
   gatewayOrderId   String? // Razorpay order id
   gatewayPaymentId String? // Razorpay payment id
-  receiptUrl       String?
+  receiptUrl       String?       @db.Text
   paidAt           DateTime?
   verified         Boolean       @default(false) // reconciled/verified by admin
   refundedAt       DateTime?
-  notes            String? // reference / refund reason
+  notes            String?       @db.Text // reference / refund reason
 
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
@@ -445,11 +451,11 @@ model MaintenanceRequest {
   tenantId    String
 
   title       String
-  description String
+  description String            @db.Text
   priority    Priority          @default(MEDIUM)
   status      MaintenanceStatus @default(PENDING)
   assignedTo  String? // technician name / contact
-  images      String[]          @default([])
+  images      Json              @default("[]") // string[] of image URLs (MySQL has no array type)
 
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
@@ -471,7 +477,7 @@ model Complaint {
   tenantId    String
 
   subject     String
-  description String
+  description String             @db.Text
   status      ComplaintStatus    @default(OPEN)
   messages    ComplaintMessage[]
 
@@ -488,7 +494,7 @@ model ComplaintMessage {
   complaintId String
   author      User      @relation(fields: [authorId], references: [id])
   authorId    String
-  body        String
+  body        String    @db.Text
   createdAt   DateTime  @default(now())
 
   @@index([complaintId])
@@ -509,7 +515,7 @@ model Rating {
   rateeId     String
 
   stars       Int // 1..5
-  feedback    String?
+  feedback    String?         @db.Text
   recommend   Boolean         @default(false)
   criteria    Json? // per-direction criteria scores
   status      RatingStatus    @default(VISIBLE)
@@ -536,12 +542,12 @@ model Document {
   leaseId     String?
   type        DocumentType @default(OTHER)
   // Local-storage files use storageKey; url is kept for external/legacy links.
-  url         String?
+  url         String?      @db.Text
   storageKey  String?
-  fileName    String?
+  fileName    String?      @db.Text
   contentType String?
   sizeBytes   Int?
-  label       String?
+  label       String?      @db.Text
   createdAt   DateTime     @default(now())
 
   @@index([ownerId])
@@ -555,8 +561,8 @@ model Notification {
   userId    String
   type      String
   title     String
-  body      String?
-  link      String?
+  body      String?  @db.Text
+  link      String?  @db.Text
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
@@ -567,7 +573,7 @@ model PushSubscription {
   id        String   @id @default(cuid())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
-  endpoint  String   @unique
+  endpoint  String   @unique @db.VarChar(512) // push endpoints exceed the 191-char default
   p256dh    String
   auth      String
   createdAt DateTime @default(now())
@@ -618,7 +624,7 @@ model Application {
   fullName   String
   email      String
   phone      String?
-  message    String?
+  message    String?           @db.Text
   status     ApplicationStatus @default(PENDING)
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt

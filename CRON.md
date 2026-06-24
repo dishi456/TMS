@@ -34,7 +34,7 @@ Set `CRON_SECRET` in your environment (see `.env.example`). The endpoint returns
 
 **Windows (Task Scheduler):**
 ```powershell
-Invoke-WebRequest -Uri "http://localhost:3000/api/cron/run" -Headers @{ Authorization = "Bearer YOUR_CRON_SECRET" }
+Invoke-WebRequest -Uri "http://localhost:4000/api/cron/run" -Headers @{ Authorization = "Bearer YOUR_CRON_SECRET" }
 ```
 
 It's safe to run more often than daily — invoice generation is idempotent.

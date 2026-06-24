@@ -1,61 +1,52 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { requireMobile, json } from "@/lib/mobile-auth";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notify";
-import { requireMobileUser, json, error } from "@/lib/mobile-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET detail + thread (landlord side).
+function ownWhere(landlordId: string, id: string) {
+  return { id, OR: [{ property: { landlordId } }, { tenant: { landlordId } }] };
+}
+
+// GET /api/mobile/v1/landlord/complaints/{id} -> detail + thread
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const user = await requireMobileUser(req, ["LANDLORD"]);
-  if (user instanceof Response) return user;
+  const { user, res } = await requireMobile(req, "LANDLORD");
+  if (res) return res;
   const { id } = await ctx.params;
   const c = await prisma.complaint.findFirst({
-    where: { id, property: { landlordId: user.id } },
-    select: {
-      id: true, subject: true, description: true, status: true, createdAt: true,
-      property: { select: { name: true } }, tenant: { select: { fullName: true } },
-      messages: { orderBy: { createdAt: "asc" }, select: { id: true, body: true, authorId: true, createdAt: true } },
+    where: ownWhere(user.id, id),
+    include: {
+      property: { select: { id: true, name: true } },
+      tenant: { select: { id: true, fullName: true } },
+      messages: { orderBy: { createdAt: "asc" }, include: { author: { select: { id: true, fullName: true, role: true } } } },
     },
   });
-  if (!c) return error("Not found", 404);
+  if (!c) return json({ error: "Not found." }, 404);
   return json({
-    id: c.id, subject: c.subject, description: c.description, status: c.status, createdAt: c.createdAt.toISOString(),
-    property: c.property?.name ?? null, tenant: c.tenant.fullName,
-    messages: c.messages.map((m) => ({ id: m.id, body: m.body, mine: m.authorId === user.id, createdAt: m.createdAt.toISOString() })),
+    complaint: {
+      id: c.id, subject: c.subject, description: c.description, status: c.status,
+      property: c.property, tenant: c.tenant, createdAt: c.createdAt,
+      messages: c.messages.map((m) => ({ id: m.id, body: m.body, createdAt: m.createdAt, author: m.author, mine: m.authorId === user.id })),
+    },
   });
 }
 
-const schema = z.object({
-  body: z.string().optional(),
-  status: z.enum(["OPEN", "RESPONDED", "RESOLVED", "CLOSED", "REOPENED"]).optional(),
-});
+const schema = z.object({ status: z.enum(["OPEN", "RESPONDED", "RESOLVED", "CLOSED", "REOPENED"]) });
 
-// POST → respond (adds a message, sets RESPONDED) and/or change status.
-export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const user = await requireMobileUser(req, ["LANDLORD"]);
-  if (user instanceof Response) return user;
+// PATCH /api/mobile/v1/landlord/complaints/{id}  { status }
+export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { user, res } = await requireMobile(req, "LANDLORD");
+  if (res) return res;
   const { id } = await ctx.params;
+  const c = await prisma.complaint.findFirst({ where: ownWhere(user.id, id), select: { id: true, tenantId: true } });
+  if (!c) return json({ error: "Not found." }, 404);
   const parsed = schema.safeParse(await req.json().catch(() => ({})));
-  if (!parsed.success) return error("Invalid request.", 400);
-  const d = parsed.data;
-
-  const c = await prisma.complaint.findFirst({ where: { id, property: { landlordId: user.id } }, select: { id: true, tenantId: true } });
-  if (!c) return error("Not found", 404);
-
-  const body = (d.body ?? "").trim();
-  if (body) {
-    await prisma.complaintMessage.create({ data: { complaintId: id, authorId: user.id, body: body.slice(0, 2000) } });
-    await prisma.complaint.update({ where: { id }, data: { status: d.status ?? "RESPONDED" } });
-    await notify(c.tenantId, { type: "complaint_response", title: "New response to your complaint", link: `/tenant/complaints/${id}` });
-  } else if (d.status) {
-    await prisma.complaint.update({ where: { id }, data: { status: d.status } });
-    await notify(c.tenantId, { type: "complaint", title: `Complaint ${d.status}`, link: `/tenant/complaints/${id}` });
-  } else {
-    return error("Nothing to update.", 400);
-  }
-  await audit({ actorId: user.id, action: "complaint.update", entity: "Complaint", entityId: id });
+  if (!parsed.success) return json({ error: parsed.error.issues[0].message }, 400);
+  await prisma.complaint.update({ where: { id }, data: { status: parsed.data.status } });
+  await audit({ actorId: user.id, action: "complaint.status", entity: "Complaint", entityId: id, metadata: { status: parsed.data.status } });
+  await notify(c.tenantId, { type: "complaint", title: "Complaint updated", body: `Status: ${parsed.data.status}`, link: "/tenant/complaints" });
   return json({ ok: true });
 }

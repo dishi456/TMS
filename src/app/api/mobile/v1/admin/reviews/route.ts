@@ -1,33 +1,29 @@
-import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireMobileUser, json } from "@/lib/mobile-auth";
+import { requireMobile, json } from "@/lib/mobile-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const STATUSES = ["VISIBLE", "FLAGGED", "REMOVED"];
-
-// GET /api/mobile/v1/admin/reviews?status= → ratings for moderation.
+// GET /api/mobile/v1/admin/reviews?status=VISIBLE|FLAGGED|REMOVED -> all ratings (moderation)
 export async function GET(req: Request) {
-  const user = await requireMobileUser(req, ["MASTER_ADMIN"]);
-  if (user instanceof Response) return user;
-  const status = (new URL(req.url).searchParams.get("status") || "").toUpperCase();
-
-  const where: Prisma.RatingWhereInput = STATUSES.includes(status) ? { status: status as Prisma.RatingWhereInput["status"] } : {};
-
-  const items = await prisma.rating.findMany({
-    where, orderBy: { createdAt: "desc" }, take: 100,
-    select: {
-      id: true, stars: true, feedback: true, direction: true, status: true, createdAt: true,
-      rater: { select: { fullName: true, role: true } },
-      ratee: { select: { fullName: true } },
+  const { user, res } = await requireMobile(req, "MASTER_ADMIN");
+  if (res) return res;
+  const status = new URL(req.url).searchParams.get("status");
+  const where = status && ["VISIBLE", "FLAGGED", "REMOVED"].includes(status)
+    ? { status: status as "VISIBLE" | "FLAGGED" | "REMOVED" } : {};
+  const ratings = await prisma.rating.findMany({
+    where, orderBy: { createdAt: "desc" }, take: 300,
+    include: {
+      rater: { select: { id: true, fullName: true } },
+      ratee: { select: { id: true, fullName: true } },
+      lease: { select: { property: { select: { name: true } } } },
     },
   });
-
   return json({
-    items: items.map((r) => ({
-      id: r.id, stars: r.stars, feedback: r.feedback, direction: r.direction, status: r.status,
-      createdAt: r.createdAt.toISOString(), from: r.rater.fullName, fromRole: r.rater.role, to: r.ratee.fullName,
+    ratings: ratings.map((r) => ({
+      id: r.id, direction: r.direction, stars: r.stars, feedback: r.feedback, recommend: r.recommend,
+      criteria: r.criteria, status: r.status, rater: r.rater, ratee: r.ratee,
+      property: r.lease.property.name, createdAt: r.createdAt,
     })),
   });
 }

@@ -55,7 +55,7 @@ export async function sendOtp(rawEmail: string, purpose: OtpPurpose): Promise<Se
     subject: `${APP_NAME} verification code: ${code}`,
     html: emailLayout(
       "Your verification code",
-      `<p>Use this code to ${purpose === "login" ? "sign in" : purpose === "register" ? "verify your email" : purpose === "reset" ? "reset your password" : "start your chat"}:</p>
+      `<p>Use this code to ${purpose === "login" ? "sign in" : purpose === "register" ? "verify your email" : "start your chat"}:</p>
        <p style="font-size:30px;font-weight:bold;letter-spacing:6px;color:#2563eb;margin:16px 0">${code}</p>
        <p style="color:#64748b;font-size:13px">This code expires in ${CODE_TTL_MIN} minutes. If you didn't request it, you can ignore this email.</p>`,
     ),

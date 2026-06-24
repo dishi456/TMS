@@ -1,21 +1,20 @@
-import { requireMobileUser, json } from "@/lib/mobile-auth";
+import { prisma } from "@/lib/prisma";
+import { requireMobile, json } from "@/lib/mobile-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET /api/mobile/v1/me → current account (any authenticated role).
+// GET /api/mobile/v1/me -> current user profile (any authenticated role)
 export async function GET(req: Request) {
-  const user = await requireMobileUser(req);
-  if (user instanceof Response) return user;
-
-  return json({
-    id: user.id,
-    fullName: user.fullName,
-    email: user.email,
-    role: user.role,
-    phone: user.phone,
-    avatarUrl: user.avatarUrl,
-    verified: user.verified,
-    status: user.status,
+  const { user, res } = await requireMobile(req);
+  if (res) return res;
+  const u = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: {
+      id: true, fullName: true, email: true, role: true, status: true,
+      phone: true, avatarUrl: true, verified: true, governmentId: true,
+      emergencyContact: true, createdAt: true,
+    },
   });
+  return json({ user: u });
 }

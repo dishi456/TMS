@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { toStrArr } from "@/lib/json";
 import { Badge, Card } from "@/components/ui";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { StatCard } from "@/components/StatCard";
@@ -144,7 +145,7 @@ export default async function LandlordPropertyDetail({
                 projectName: property.projectName ?? undefined,
                 bachelorsAllowed: property.bachelorsAllowed,
                 listedPublic: property.listedPublic,
-                amenities: property.amenities.join(", "),
+                amenities: toStrArr(property.amenities).join(", "),
                 availability: property.availability,
               }}
             />

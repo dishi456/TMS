@@ -1,6 +1,14 @@
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { notify } from "@/lib/notify";
-import { sessionOrBearerUser } from "@/lib/mobile-auth";
+import { getMobileUser } from "@/lib/mobile-auth";
+
+// Accept either the web cookie session or a mobile Bearer token.
+async function resolveMeId(req: Request): Promise<string | null> {
+  const session = await auth();
+  if (session?.user?.id) return session.user.id;
+  return (await getMobileUser(req))?.id ?? null;
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,9 +31,8 @@ async function relate(meId: string, otherId: string) {
 // Poll: returns the thread + the other party's online status. Doubles as a
 // heartbeat (updates my lastSeenAt) and marks the other party's msgs read.
 export async function GET(req: Request) {
-  const me = await sessionOrBearerUser(req);
-  if (!me) return new Response("Unauthorized", { status: 401 });
-  const meId = me.id;
+  const meId = await resolveMeId(req);
+  if (!meId) return new Response("Unauthorized", { status: 401 });
   const otherId = new URL(req.url).searchParams.get("with") ?? "";
   const rel = await relate(meId, otherId);
   if (!rel) return new Response("Forbidden", { status: 403 });
@@ -46,9 +53,8 @@ export async function GET(req: Request) {
 
 // Send a message.
 export async function POST(req: Request) {
-  const me = await sessionOrBearerUser(req);
-  if (!me) return new Response("Unauthorized", { status: 401 });
-  const meId = me.id;
+  const meId = await resolveMeId(req);
+  if (!meId) return new Response("Unauthorized", { status: 401 });
   const { recipientId, body } = await req.json().catch(() => ({}));
   const text = String(body ?? "").trim();
   if (!recipientId || !text) return new Response("Bad request", { status: 400 });

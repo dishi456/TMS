@@ -1,24 +1,27 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { requireMobile, json } from "@/lib/mobile-auth";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notify";
-import { requireMobileUser, json, error } from "@/lib/mobile-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET /api/mobile/v1/tenant/complaints → the tenant's complaints.
+// GET /api/mobile/v1/tenant/complaints -> list
 export async function GET(req: Request) {
-  const user = await requireMobileUser(req, ["TENANT"]);
-  if (user instanceof Response) return user;
-
+  const { user, res } = await requireMobile(req, "TENANT");
+  if (res) return res;
   const items = await prisma.complaint.findMany({
     where: { tenantId: user.id },
     orderBy: { createdAt: "desc" },
-    select: { id: true, subject: true, status: true, createdAt: true },
+    include: { property: { select: { id: true, name: true } }, _count: { select: { messages: true } } },
   });
-
-  return json({ items: items.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() })) });
+  return json({
+    complaints: items.map((c) => ({
+      id: c.id, subject: c.subject, description: c.description, status: c.status,
+      property: c.property, messageCount: c._count.messages, createdAt: c.createdAt,
+    })),
+  });
 }
 
 const schema = z.object({
@@ -27,19 +30,18 @@ const schema = z.object({
   propertyId: z.string().optional(),
 });
 
-// POST /api/mobile/v1/tenant/complaints → file a complaint.
+// POST /api/mobile/v1/tenant/complaints  { subject, description, propertyId? }
 export async function POST(req: Request) {
-  const user = await requireMobileUser(req, ["TENANT"]);
-  if (user instanceof Response) return user;
-
+  const { user, res } = await requireMobile(req, "TENANT");
+  if (res) return res;
   const parsed = schema.safeParse(await req.json().catch(() => ({})));
-  if (!parsed.success) return error(parsed.error.issues[0].message, 400);
+  if (!parsed.success) return json({ error: parsed.error.issues[0].message }, 400);
   const d = parsed.data;
 
   let propertyId: string | null = null;
   if (d.propertyId) {
     const lease = await prisma.lease.findFirst({ where: { tenantId: user.id, propertyId: d.propertyId } });
-    if (!lease) return error("You don't have a lease on that property.", 403);
+    if (!lease) return json({ error: "You don't have a lease on that property." }, 400);
     propertyId = d.propertyId;
   }
 
@@ -50,17 +52,11 @@ export async function POST(req: Request) {
 
   let landlordId: string | null | undefined;
   if (propertyId) {
-    const prop = await prisma.property.findUnique({ where: { id: propertyId }, select: { landlordId: true } });
-    landlordId = prop?.landlordId;
+    landlordId = (await prisma.property.findUnique({ where: { id: propertyId }, select: { landlordId: true } }))?.landlordId;
   } else {
     landlordId = (await prisma.user.findUnique({ where: { id: user.id }, select: { landlordId: true } }))?.landlordId;
   }
-  await notify(landlordId, {
-    type: "complaint",
-    title: "New complaint submitted",
-    body: d.subject,
-    link: `/landlord/complaints/${complaint.id}`,
-  });
+  await notify(landlordId, { type: "complaint", title: "New complaint submitted", body: d.subject, link: `/landlord/complaints/${complaint.id}` });
 
-  return json({ id: complaint.id }, 201);
+  return json({ ok: true, id: complaint.id });
 }

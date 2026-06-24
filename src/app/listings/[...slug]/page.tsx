@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { toStrArr } from "@/lib/json";
 import { roleHome, type Role } from "@/lib/roles";
 import { propertyPath } from "@/lib/property-path";
 import { formatMoney, formatNumber } from "@/lib/format";
@@ -98,7 +99,7 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
   details.push(["Listed by", cap(property.listedBy)]);
   details.push(["Reference", property.ref ?? "—"]);
 
-  const amenities = [...property.amenities];
+  const amenities = [...toStrArr(property.amenities)];
   if (property.hasLobby) amenities.unshift("Lobby");
 
   const tabs = [

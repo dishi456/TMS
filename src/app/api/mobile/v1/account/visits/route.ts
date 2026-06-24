@@ -1,37 +1,29 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { notify } from "@/lib/notify";
-import { requireMobileUser, json, error } from "@/lib/mobile-auth";
+import { requireMobile, json } from "@/lib/mobile-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET /api/mobile/v1/account/visits → the signed-in seeker's visit requests.
+// GET /api/mobile/v1/account/visits -> the signed-in seeker's visit requests.
 export async function GET(req: Request) {
-  const user = await requireMobileUser(req, ["USER", "TENANT"]);
-  if (user instanceof Response) return user;
-
+  const { user, res } = await requireMobile(req, ["USER", "TENANT"]);
+  if (res) return res;
   const visits = await prisma.visit.findMany({
     where: { email: user.email.toLowerCase() },
     orderBy: { createdAt: "desc" },
     include: { property: { select: { name: true, ref: true } } },
   });
-
   return json({
     items: visits.map((v) => ({
-      id: v.id,
-      status: v.status,
-      preferredAt: v.preferredAt,
-      message: v.message,
-      createdAt: v.createdAt,
-      property: v.property.name,
-      ref: v.property.ref,
+      id: v.id, status: v.status, preferredAt: v.preferredAt, message: v.message, createdAt: v.createdAt,
+      property: v.property.name, ref: v.property.ref,
     })),
   });
 }
 
-// POST /api/mobile/v1/account/visits → book a property tour.
-// Mirrors the website's requestVisit (src/app/listings/actions.ts).
+// POST { propertyId, preferredAt(ISO), message? } -> book a tour. Mirrors web requestVisit.
 const schema = z.object({
   propertyId: z.string().min(1, "Missing property."),
   preferredAt: z.string().min(1, "Pick a preferred date & time."),
@@ -39,28 +31,21 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
-  const user = await requireMobileUser(req, ["USER", "TENANT"]);
-  if (user instanceof Response) return user;
-
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return error("Invalid JSON body.");
-  }
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) return error(parsed.error.issues[0].message);
+  const { user, res } = await requireMobile(req, ["USER", "TENANT"]);
+  if (res) return res;
+  const parsed = schema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return json({ error: parsed.error.issues[0].message }, 400);
   const d = parsed.data;
 
   const when = new Date(d.preferredAt);
-  if (Number.isNaN(when.getTime())) return error("Invalid date & time.");
-  if (when.getTime() < Date.now()) return error("Pick a future date & time.");
+  if (Number.isNaN(when.getTime())) return json({ error: "Invalid date & time." }, 400);
+  if (when.getTime() < Date.now()) return json({ error: "Pick a future date & time." }, 400);
 
   const property = await prisma.property.findFirst({
     where: { id: d.propertyId, approved: true },
     select: { id: true, name: true, landlordId: true },
   });
-  if (!property) return error("This property is not available for visits.", 404);
+  if (!property) return json({ error: "This property is not available for visits." }, 404);
 
   const visit = await prisma.visit.create({
     data: {

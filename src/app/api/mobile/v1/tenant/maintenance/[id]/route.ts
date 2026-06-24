@@ -1,42 +1,25 @@
 import { prisma } from "@/lib/prisma";
-import { requireMobileUser, json, error } from "@/lib/mobile-auth";
+import { requireMobile, json } from "@/lib/mobile-auth";
+import { toStrArr } from "@/lib/json";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET /api/mobile/v1/tenant/maintenance/{id} → request detail.
+// GET /api/mobile/v1/tenant/maintenance/{id} -> one request (owned by the tenant)
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const user = await requireMobileUser(req, ["TENANT"]);
-  if (user instanceof Response) return user;
+  const { user, res } = await requireMobile(req, "TENANT");
+  if (res) return res;
   const { id } = await ctx.params;
-
-  const m = await prisma.maintenanceRequest.findFirst({
+  const r = await prisma.maintenanceRequest.findFirst({
     where: { id, tenantId: user.id },
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      status: true,
-      priority: true,
-      images: true,
-      assignedTo: true,
-      createdAt: true,
-      updatedAt: true,
-      property: { select: { id: true, name: true, address: true } },
-    },
+    include: { property: { select: { id: true, name: true, address: true } } },
   });
-  if (!m) return error("Not found", 404);
-
+  if (!r) return json({ error: "Not found." }, 404);
   return json({
-    id: m.id,
-    title: m.title,
-    description: m.description,
-    status: m.status,
-    priority: m.priority,
-    images: m.images,
-    assignedTo: m.assignedTo,
-    createdAt: m.createdAt.toISOString(),
-    updatedAt: m.updatedAt.toISOString(),
-    property: m.property,
+    request: {
+      id: r.id, title: r.title, description: r.description, priority: r.priority, status: r.status,
+      assignedTo: r.assignedTo, images: toStrArr(r.images), property: r.property,
+      createdAt: r.createdAt, updatedAt: r.updatedAt,
+    },
   });
 }

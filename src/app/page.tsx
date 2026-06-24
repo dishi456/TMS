@@ -9,9 +9,23 @@ import { Faq } from "./_landing/Faq";
 import { prisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
-  title: "Modern Tenant & Property Management",
+  title: {
+    absolute: "RentRedi Clone - White Label Tenant & Landlord Management Solution",
+  },
   description:
-    "Lease Lord unifies landlords, tenants and administrators on one platform — properties, leases, online rent, maintenance, complaints and two-way reviews.",
+    "White-label RentRedi clone for tenant and landlord management — a ready-to-launch property management software with online rent collection, lease agreements, auto invoicing, maintenance requests, complaints, two-way reviews, document vault and analytics. Rebrandable SaaS for landlords, tenants and property managers.",
+  keywords: [
+    "RentRedi clone",
+    "white label property management software",
+    "tenant and landlord management solution",
+    "rent collection software",
+    "lease management software",
+    "property management SaaS",
+    "rental management platform",
+    "landlord tenant portal",
+    "online rent payment",
+    "maintenance request management",
+  ],
 };
 
 // ---------------------------------------------------------------------------
@@ -142,10 +156,10 @@ export default async function Landing() {
               All-in-one rental platform
             </span>
 
-            <h1 className="animate-fade-up mt-5 text-4xl font-extrabold leading-[1.08] tracking-tight text-slate-900 sm:text-5xl lg:text-6xl [--delay:80ms]">
-              Property management,{" "}
+            <h1 className="animate-fade-up mt-5 text-[36px] font-extrabold leading-[1.12] tracking-tight text-slate-900 sm:text-[44px] lg:text-[41px] xl:text-[46px] [--delay:80ms]">
+              RentRedi Clone —<br />
               <span className="animate-gradient bg-gradient-to-r from-blue-600 via-cyan-500 to-violet-600 bg-clip-text text-transparent">
-                beautifully simplified
+                White Label Tenant &amp;<br />Landlord Management Solution
               </span>
             </h1>
 

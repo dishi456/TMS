@@ -2,30 +2,50 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { requireMobile, json } from "@/lib/mobile-auth";
 import { audit } from "@/lib/audit";
-import { requireMobileUser, json, error } from "@/lib/mobile-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET /api/mobile/v1/landlord/tenants → ALL of the landlord's managed tenants
-// (by landlordId), so a freshly-added tenant shows up even before they have a
-// lease. Returns the `{ tenants: [...] }` envelope the live backend uses.
+// GET /api/mobile/v1/landlord/tenants -> ALL tenants this landlord manages
+// (by landlordId), so a freshly-added tenant shows even before they have a lease.
 export async function GET(req: Request) {
-  const user = await requireMobileUser(req, ["LANDLORD"]);
-  if (user instanceof Response) return user;
-
-  const tenants = await prisma.user.findMany({
+  const { user, res } = await requireMobile(req, "LANDLORD");
+  if (res) return res;
+  const rows = await prisma.user.findMany({
     where: { role: "TENANT", landlordId: user.id },
     orderBy: { createdAt: "desc" },
-    select: { id: true, fullName: true, email: true, phone: true, status: true, verified: true },
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      phone: true,
+      status: true,
+      verified: true,
+      tenantLeases: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { id: true, status: true, property: { select: { id: true, name: true } } },
+      },
+    },
   });
-
+  const tenants = rows.map((t) => ({
+    id: t.id,
+    fullName: t.fullName,
+    email: t.email,
+    phone: t.phone,
+    status: t.status,
+    verified: t.verified,
+    leaseId: t.tenantLeases[0]?.id ?? null,
+    leaseStatus: t.tenantLeases[0]?.status ?? null,
+    // app renders this as a string; null when no lease yet
+    property: t.tenantLeases[0]?.property?.name ?? null,
+  }));
   return json({ tenants });
 }
 
-// POST /api/mobile/v1/landlord/tenants → landlord adds a tenant.
-// Mirrors the website's addTenant action (src/app/landlord/tenants/actions.ts).
+// POST /api/mobile/v1/landlord/tenants -> landlord adds a tenant (mirrors web addTenant)
 const addSchema = z.object({
   fullName: z.string().min(2, "Enter the tenant's full name."),
   email: z.string().email("Enter a valid email."),
@@ -35,19 +55,11 @@ const addSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const user = await requireMobileUser(req, ["LANDLORD"]);
-  if (user instanceof Response) return user;
-
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return error("Invalid JSON body.");
-  }
-  const parsed = addSchema.safeParse(body);
-  if (!parsed.success) return error(parsed.error.issues[0].message);
+  const { user, res } = await requireMobile(req, "LANDLORD");
+  if (res) return res;
+  const parsed = addSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return json({ error: parsed.error.issues[0].message }, 400);
   const d = parsed.data;
-
   try {
     const tenant = await prisma.user.create({
       data: {
@@ -66,7 +78,7 @@ export async function POST(req: Request) {
     return json({ ok: true, id: tenant.id });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-      return error("A user with this email already exists.", 409);
+      return json({ error: "A user with this email already exists." }, 409);
     }
     throw e;
   }

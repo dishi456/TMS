@@ -1,37 +1,39 @@
 import { prisma } from "@/lib/prisma";
-import { requireMobileUser, json } from "@/lib/mobile-auth";
+import { requireMobile, json } from "@/lib/mobile-auth";
+import { propertyWriteSchema, toPropertyData, serializeCard } from "@/lib/mobile-property";
+import { generatePropertyRef } from "@/lib/property-ref";
+import { audit } from "@/lib/audit";
+import { notify } from "@/lib/notify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET /api/mobile/v1/landlord/properties → the landlord's properties.
+// GET /api/mobile/v1/landlord/properties -> this landlord's properties
 export async function GET(req: Request) {
-  const user = await requireMobileUser(req, ["LANDLORD"]);
-  if (user instanceof Response) return user;
-
+  const { user, res } = await requireMobile(req, "LANDLORD");
+  if (res) return res;
   const props = await prisma.property.findMany({
     where: { landlordId: user.id },
     orderBy: { createdAt: "desc" },
-    include: {
-      documents: { where: { type: "PHOTO" }, take: 1, orderBy: { createdAt: "asc" }, select: { id: true } },
-      leases: { where: { status: { in: ["ACTIVE", "RENEWED"] } }, select: { tenant: { select: { fullName: true } } } },
-    },
+    include: { documents: { where: { type: "PHOTO" }, take: 1, orderBy: { createdAt: "asc" }, select: { id: true } } },
   });
+  return json({ properties: props.map(serializeCard) });
+}
 
-  return json({
-    items: props.map((p) => ({
-      id: p.id,
-      ref: p.ref,
-      name: p.name,
-      address: p.address,
-      type: p.type,
-      rent: Number(p.rentAmount),
-      availability: p.availability,
-      approved: p.approved,
-      verified: p.verified,
-      listedPublic: p.listedPublic,
-      photo: p.documents[0] ? `/api/files/${p.documents[0].id}` : null,
-      tenants: p.leases.map((l) => l.tenant.fullName),
-    })),
+// POST /api/mobile/v1/landlord/properties -> create a property (awaits admin approval)
+export async function POST(req: Request) {
+  const { user, res } = await requireMobile(req, "LANDLORD");
+  if (res) return res;
+  const parsed = propertyWriteSchema.safeParse(await req.json().catch(() => ({})));
+  if (!parsed.success) return json({ error: parsed.error.issues[0].message }, 400);
+
+  const created = await prisma.property.create({
+    data: { ...toPropertyData(parsed.data), ref: await generatePropertyRef(), landlordId: user.id, approved: false },
   });
+  await audit({ actorId: user.id, action: "property.create", entity: "Property", entityId: created.id });
+  const admins = await prisma.user.findMany({ where: { role: "MASTER_ADMIN" }, select: { id: true } });
+  for (const a of admins) {
+    await notify(a.id, { type: "property", title: "New property pending approval", body: created.name, link: `/master-admin/properties/${created.id}` });
+  }
+  return json({ ok: true, id: created.id });
 }

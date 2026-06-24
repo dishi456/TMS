@@ -1,30 +1,28 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { requireMobile, json } from "@/lib/mobile-auth";
+import { toStrArr } from "@/lib/json";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notify";
-import { requireMobileUser, json, error } from "@/lib/mobile-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// GET detail
+async function own(landlordId: string, id: string) {
+  return prisma.maintenanceRequest.findFirst({ where: { id, property: { landlordId } } });
+}
+
+// GET /api/mobile/v1/landlord/maintenance/{id}
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const user = await requireMobileUser(req, ["LANDLORD"]);
-  if (user instanceof Response) return user;
+  const { user, res } = await requireMobile(req, "LANDLORD");
+  if (res) return res;
   const { id } = await ctx.params;
-  const m = await prisma.maintenanceRequest.findFirst({
+  const r = await prisma.maintenanceRequest.findFirst({
     where: { id, property: { landlordId: user.id } },
-    select: {
-      id: true, title: true, description: true, status: true, priority: true, assignedTo: true, images: true, createdAt: true,
-      property: { select: { name: true } }, tenant: { select: { fullName: true, phone: true } },
-    },
+    include: { property: { select: { id: true, name: true } }, tenant: { select: { id: true, fullName: true, phone: true } } },
   });
-  if (!m) return error("Not found", 404);
-  return json({
-    id: m.id, title: m.title, description: m.description, status: m.status, priority: m.priority,
-    assignedTo: m.assignedTo, images: m.images, createdAt: m.createdAt.toISOString(),
-    property: m.property.name, tenant: m.tenant.fullName, tenantPhone: m.tenant.phone,
-  });
+  if (!r) return json({ error: "Not found." }, 404);
+  return json({ request: { ...r, images: toStrArr(r.images) } });
 }
 
 const schema = z.object({
@@ -32,26 +30,24 @@ const schema = z.object({
   assignedTo: z.string().optional(),
 });
 
-// POST /api/mobile/v1/landlord/maintenance/{id} → update status / assign a technician.
-export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const user = await requireMobileUser(req, ["LANDLORD"]);
-  if (user instanceof Response) return user;
+// PATCH /api/mobile/v1/landlord/maintenance/{id}  { status?, assignedTo? }
+export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { user, res } = await requireMobile(req, "LANDLORD");
+  if (res) return res;
   const { id } = await ctx.params;
+  const r = await own(user.id, id);
+  if (!r) return json({ error: "Not found." }, 404);
   const parsed = schema.safeParse(await req.json().catch(() => ({})));
-  if (!parsed.success) return error("Invalid request.", 400);
+  if (!parsed.success) return json({ error: parsed.error.issues[0].message }, 400);
   const d = parsed.data;
+  if (!d.status && d.assignedTo === undefined) return json({ error: "Nothing to update." }, 400);
 
-  const m = await prisma.maintenanceRequest.findFirst({ where: { id, property: { landlordId: user.id } }, select: { id: true, tenantId: true } });
-  if (!m) return error("Not found", 404);
-
-  const data: { status?: typeof d.status; assignedTo?: string } = {};
-  if (d.assignedTo !== undefined) { data.assignedTo = d.assignedTo; data.status = data.status ?? "ASSIGNED"; }
-  if (d.status) data.status = d.status;
-  if (!data.status && data.assignedTo === undefined) return error("Nothing to update.", 400);
-
+  const data = {
+    ...(d.status ? { status: d.status } : {}),
+    ...(d.assignedTo !== undefined ? { assignedTo: d.assignedTo || null, ...(d.assignedTo ? { status: "ASSIGNED" as const } : {}) } : {}),
+  };
   await prisma.maintenanceRequest.update({ where: { id }, data });
-  await audit({ actorId: user.id, action: "maintenance.update", entity: "MaintenanceRequest", entityId: id });
-  await notify(m.tenantId, { type: "maintenance", title: "Maintenance request updated", body: data.status ? `Status: ${data.status}` : undefined, link: `/tenant/maintenance/${id}` });
-
+  await audit({ actorId: user.id, action: "maintenance.status", entity: "MaintenanceRequest", entityId: id, metadata: data });
+  if (d.status) await notify(r.tenantId, { type: "maintenance", title: "Maintenance request updated", body: `Status: ${d.status}`, link: "/tenant/maintenance" });
   return json({ ok: true });
 }

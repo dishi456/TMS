@@ -15,12 +15,6 @@ if (gmailUser && gmailPass) {
   gmailTransport = nodemailer.createTransport({
     service: "gmail",
     auth: { user: gmailUser, pass: gmailPass },
-    // Fail fast instead of hanging the request when SMTP egress is blocked
-    // (e.g. local networks that firewall ports 465/587). The caller falls
-    // back to Resend / console logging.
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 10000,
   });
 }
 
@@ -35,31 +29,24 @@ export function emailConfigured(): boolean {
   return !!gmailTransport || !!resend;
 }
 
-// Send an email. Prefers Resend (HTTPS API — works where SMTP ports are
-// firewalled), then Gmail SMTP, then logs to the console so flows still work in
-// development without any credentials configured.
+// Send an email. Tries Gmail SMTP first, then Resend, then logs to the console
+// so flows still work in development without any credentials configured.
 export async function sendEmail(opts: { to: string; subject: string; html: string }): Promise<void> {
-  if (resend) {
-    try {
-      const { error } = await resend.emails.send({ from, to: opts.to, subject: opts.subject, html: opts.html });
-      if (error) throw new Error(typeof error === "string" ? error : JSON.stringify(error));
-      return;
-    } catch (e) {
-      console.error("resend send failed:", e instanceof Error ? e.message : e);
-      // fall through to Gmail / console
-    }
-  }
   if (gmailTransport) {
     try {
-      // Hard cap so a blocked SMTP port (no egress on 465/587) can never hang
-      // the request — give up after 9s and fall through to the console.
-      await Promise.race([
-        gmailTransport.sendMail({ from, to: opts.to, subject: opts.subject, html: opts.html }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("gmail send timed out")), 9000)),
-      ]);
+      await gmailTransport.sendMail({ from, to: opts.to, subject: opts.subject, html: opts.html });
       return;
     } catch (e) {
-      console.error("gmail send failed:", e instanceof Error ? e.message : e);
+      console.error("gmail send failed:", e);
+      // fall through to other transports
+    }
+  }
+  if (resend) {
+    try {
+      await resend.emails.send({ from, to: opts.to, subject: opts.subject, html: opts.html });
+      return;
+    } catch (e) {
+      console.error("resend send failed:", e);
     }
   }
   console.log(
