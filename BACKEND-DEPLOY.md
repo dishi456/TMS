@@ -306,7 +306,7 @@ Get tokens, then check the endpoints answer **validation errors (400)**, not 404
 
 ```bash
 B=https://prebuildapps.com/api/mobile/v1
-LTOK=$(curl -s -X POST "$B/auth/login" -H 'Content-Type: application/json' -d '{"email":"landlord@prebuildapps.com","password":"Password123!"}' | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+LTOK=$(curl -s -X POST "$B/auth/login" -H 'Content-Type: application/json' -d '{"email":"<YOUR_LANDLORD_EMAIL>","password":"<YOUR_PASSWORD>"}' | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
 
 # add-tenant: expect 400 "Enter the tenant's full name." (NOT 405)
 curl -s -X POST -H "Authorization: Bearer $LTOK" -H 'Content-Type: application/json' -d '{}' "$B/landlord/tenants"
