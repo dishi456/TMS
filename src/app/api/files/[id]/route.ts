@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { readFile } from "@/lib/storage";
-import { getMobileUser } from "@/lib/mobile-auth";
+import { getMobileUser, getMobileUserFromToken } from "@/lib/mobile-auth";
 
 export const runtime = "nodejs";
 
@@ -28,7 +28,10 @@ export async function GET(
     let viewerId = session?.user?.id as string | undefined;
     let viewerRole = session?.user?.role as string | undefined;
     if (!viewerId) {
-      const m = await getMobileUser(req);
+      // Mobile clients can't carry a cookie session when opening a file in the
+      // system browser, so accept a Bearer header OR a ?token= query param.
+      const qToken = new URL(req.url).searchParams.get("token");
+      const m = qToken ? await getMobileUserFromToken(qToken) : await getMobileUser(req);
       if (m) { viewerId = m.id; viewerRole = m.role; }
     }
     if (!viewerId) return new Response("Unauthorized", { status: 401 });

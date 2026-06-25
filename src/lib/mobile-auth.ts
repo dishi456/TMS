@@ -33,13 +33,10 @@ export type MobileUser = {
   status: string;
 };
 
-/** Verify the Bearer token and load the user. Returns null if missing/invalid/suspended. */
-export async function getMobileUser(req: Request): Promise<MobileUser | null> {
-  const header = req.headers.get("authorization") || "";
-  const match = header.match(/^Bearer\s+(.+)$/i);
-  if (!match) return null;
+/** Verify a raw JWT and load the user. Returns null if invalid/suspended. */
+export async function getMobileUserFromToken(token: string): Promise<MobileUser | null> {
   try {
-    const { payload } = await jwtVerify(match[1], secret);
+    const { payload } = await jwtVerify(token, secret);
     if (!payload.sub) return null;
     const user = await prisma.user.findUnique({
       where: { id: payload.sub },
@@ -50,6 +47,14 @@ export async function getMobileUser(req: Request): Promise<MobileUser | null> {
   } catch {
     return null;
   }
+}
+
+/** Verify the Bearer token and load the user. Returns null if missing/invalid/suspended. */
+export async function getMobileUser(req: Request): Promise<MobileUser | null> {
+  const header = req.headers.get("authorization") || "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+  return getMobileUserFromToken(match[1]);
 }
 
 export function json(data: unknown, status = 200): Response {
