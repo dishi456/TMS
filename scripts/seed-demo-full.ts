@@ -252,12 +252,12 @@ async function main() {
     const i = idx * 3; // spread across leases
     return { id: `sx-mr-${pad(idx + 1)}`, propertyId: `sx-p${pad(i + 1, 3)}`, tenantId: `sx-t${pad(i + 1)}`, title: m[0] as string, description: `${m[0]} — please look into this at the earliest.`, priority: m[1] as string, status: m[2] as string, assignedTo: ["ASSIGNED", "IN_PROGRESS"].includes(m[2] as string) ? "CityCare Facilities" : null };
   });
-  await prisma.maintenanceRequest.createMany({ skipDuplicates: true, data: maintenance });
+  await prisma.maintenanceRequest.createMany({ skipDuplicates: true, data: maintenance as any });
 
   // ---------- COMPLAINTS + threads ----------
   const cData = [["Noisy neighbours", "Loud music from the adjacent unit late at night.", "RESPONDED"], ["Parking spot occupied", "Someone keeps parking in my allotted slot.", "OPEN"], ["Water supply timing", "Morning water supply has been irregular this week.", "RESOLVED"], ["Lift out of service", "The lift has been down for two days.", "RESPONDED"]];
   const complaints = cData.map((c, idx) => { const i = idx * 2 + 1; return { id: `sx-cp-${pad(idx + 1)}`, tenantId: `sx-t${pad(i + 1)}`, propertyId: `sx-p${pad(i + 1, 3)}`, subject: c[0], description: c[1], status: c[2] }; });
-  await prisma.complaint.createMany({ skipDuplicates: true, data: complaints });
+  await prisma.complaint.createMany({ skipDuplicates: true, data: complaints as any });
   await prisma.complaintMessage.createMany({
     skipDuplicates: true,
     data: complaints.filter((_, idx) => cData[idx][2] !== "OPEN").map((c, idx) => ({ id: `sx-cpm-${pad(idx + 1)}`, complaintId: c.id, authorId: `sx-l${pad(Math.floor((idx * 2 + 1) / 5) + 1)}`, body: "Thanks for flagging — I've raised this with building management and will keep you posted." })),
