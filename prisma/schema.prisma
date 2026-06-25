@@ -38,6 +38,8 @@ enum PropertyType {
   HOUSE
   ROOM
   COMMERCIAL
+  LAND
+  STUDENT_HOUSING
   OTHER
 }
 
@@ -186,6 +188,7 @@ model User {
   inquiries        PropertyInquiry[]    @relation("UserInquiries")
   marketplaceListings  MarketplaceListing[]  @relation("MarketplaceListings")
   marketplaceFavorites MarketplaceFavorite[] @relation("MarketplaceFavorites")
+  chatMessages         LeaseMessage[]        @relation("ChatMessages")
 
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
@@ -248,6 +251,15 @@ model Property {
   verified         Boolean            @default(false) // ownership documents verified
   approved         Boolean            @default(false) // property registration approved
   listedPublic     Boolean            @default(true)  // landlord opted to show it on the public listings page
+
+  // Structured location + type-specific attributes (HOUSE/APARTMENT/COMMERCIAL/LAND/STUDENT_HOUSING)
+  country          String?
+  state            String?
+  city             String?
+  postalCode       String?
+  latitude         Float?
+  longitude        Float?
+  details          Json?              // type-specific fields, keyed by the dynamic form (null = {})
 
   units            Unit[]
   leases           Lease[]
@@ -388,6 +400,7 @@ model Lease {
   invoices          Invoice[]
   ratings           Rating[]
   documents         Document[]
+  messages          LeaseMessage[]
 
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
@@ -700,4 +713,22 @@ model MarketplaceFavorite {
 
   @@unique([userId, listingId])
   @@index([userId])
+}
+
+// ---- Property-based chat (one conversation per lease) ----
+model LeaseMessage {
+  id             String    @id @default(cuid())
+  lease          Lease     @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  leaseId        String
+  sender         User      @relation("ChatMessages", fields: [senderId], references: [id])
+  senderId       String
+  body           String?   @db.Text
+  attachmentUrl  String?   @db.Text
+  attachmentType String?   // image | pdf | file
+  starred        Boolean   @default(false)
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([leaseId])
+  @@index([senderId])
 }

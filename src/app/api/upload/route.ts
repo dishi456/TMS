@@ -94,6 +94,10 @@ export async function POST(req: Request) {
       type = "OTHER";
       prefix = `payments/${userId}`;
       break;
+    case "chat-attachment":
+      type = "PHOTO";
+      prefix = `chat/${userId}`;
+      break;
     default:
       return json({ error: "Unknown purpose" }, 400);
   }

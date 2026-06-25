@@ -4,8 +4,16 @@ import { toStrArr } from "@/lib/json";
 // Shared property write schema for the mobile API (JSON body; numbers/booleans native).
 export const propertyWriteSchema = z.object({
   name: z.string().min(2),
-  type: z.enum(["APARTMENT", "HOUSE", "ROOM", "COMMERCIAL", "OTHER"]),
+  type: z.enum(["APARTMENT", "HOUSE", "ROOM", "COMMERCIAL", "LAND", "STUDENT_HOUSING", "OTHER"]),
   address: z.string().min(3),
+  country: z.string().optional(),
+  state: z.string().optional(),
+  city: z.string().optional(),
+  postalCode: z.string().optional(),
+  latitude: z.coerce.number().optional(),
+  longitude: z.coerce.number().optional(),
+  // Type-specific fields from the dynamic form (free-form key/value map).
+  details: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
   description: z.string().optional(),
   rentAmount: z.coerce.number().nonnegative(),
   securityDeposit: z.coerce.number().nonnegative().default(0),
@@ -37,6 +45,9 @@ export const propertyWriteSchema = z.object({
 export function toPropertyData(d: z.infer<typeof propertyWriteSchema>) {
   return {
     name: d.name, type: d.type, address: d.address,
+    country: d.country || null, state: d.state || null, city: d.city || null, postalCode: d.postalCode || null,
+    latitude: d.latitude ?? null, longitude: d.longitude ?? null,
+    details: d.details ?? undefined,
     description: d.description || null,
     rentAmount: d.rentAmount, securityDeposit: d.securityDeposit,
     numberOfUnits: d.numberOfUnits, noticePeriodDays: d.noticePeriodDays,
