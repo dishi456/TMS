@@ -189,6 +189,8 @@ model User {
   marketplaceListings  MarketplaceListing[]  @relation("MarketplaceListings")
   marketplaceFavorites MarketplaceFavorite[] @relation("MarketplaceFavorites")
   chatMessages         LeaseMessage[]        @relation("ChatMessages")
+  blacklistsMade       Blacklist[]           @relation("LandlordBlacklist")
+  blacklistedEntries   Blacklist[]           @relation("TenantBlacklisted")
 
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
@@ -731,4 +733,19 @@ model LeaseMessage {
 
   @@index([leaseId])
   @@index([senderId])
+}
+
+// ---- Tenant blacklist (a landlord flags a tenant with a reason) ----
+model Blacklist {
+  id         String   @id @default(cuid())
+  landlord   User     @relation("LandlordBlacklist", fields: [landlordId], references: [id])
+  landlordId String
+  tenant     User     @relation("TenantBlacklisted", fields: [tenantId], references: [id])
+  tenantId   String
+  reason     String   @db.Text
+  createdAt  DateTime @default(now())
+
+  @@unique([landlordId, tenantId])
+  @@index([landlordId])
+  @@index([tenantId])
 }
