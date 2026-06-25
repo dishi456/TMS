@@ -27,7 +27,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   await prisma.visit.update({ where: { id }, data: { status } });
   await audit({ actorId: user.id, action: `visit.${parsed.data.action}`, entity: "Visit", entityId: id });
   if (status === "CONFIRMED" || status === "DECLINED") {
-    const whenStr = visit.preferredAt.toLocaleString("en-US", { dateStyle: "full", timeStyle: "short" });
+    const whenStr = visit.preferredAt
+      ? visit.preferredAt.toLocaleString("en-US", { dateStyle: "full", timeStyle: "short" })
+      : "the requested time";
     await sendEmail({
       to: visit.email,
       subject: status === "CONFIRMED" ? `Your visit to ${visit.property.name} is confirmed` : `Update on your visit request for ${visit.property.name}`,

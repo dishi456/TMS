@@ -6,6 +6,11 @@ import { SignJWT, jwtVerify } from "jose";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@/lib/roles";
 
+// Fail closed in production: a committed fallback secret would let anyone forge
+// an admin token. Only fall back to a dev secret outside production.
+if (!process.env.AUTH_SECRET && process.env.NODE_ENV === "production") {
+  throw new Error("AUTH_SECRET must be set in production (no insecure fallback allowed).");
+}
 const secret = new TextEncoder().encode(
   process.env.AUTH_SECRET || "dev-only-secret-change-me-please-0123456789",
 );

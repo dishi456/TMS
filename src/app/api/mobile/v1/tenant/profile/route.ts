@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     where: { id: user.id },
     select: {
       id: true, fullName: true, email: true, phone: true, governmentId: true,
-      emergencyContact: true, avatarUrl: true, verified: true,
+      emergencyContact: true, avatarUrl: true, verified: true, status: true,
     },
   });
   const docs = await prisma.document.findMany({

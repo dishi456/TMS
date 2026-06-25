@@ -12,8 +12,14 @@ export async function POST(req: Request) {
   if (res) return res;
   const { leaseId } = await req.json().catch(() => ({}));
 
-  const lease = await prisma.lease.findFirst({ where: { id: String(leaseId ?? ""), tenantId: user.id } });
-  if (!lease) return json({ error: "Lease not found." }, 404);
+  // The app may omit leaseId (the tenant has one active lease) — fall back to it.
+  const lease = leaseId
+    ? await prisma.lease.findFirst({ where: { id: String(leaseId), tenantId: user.id } })
+    : await prisma.lease.findFirst({
+        where: { tenantId: user.id, status: { in: ["ACTIVE", "RENEWED"] }, noticeGivenAt: null },
+        orderBy: { createdAt: "desc" },
+      });
+  if (!lease) return json({ error: "No active lease to give notice on." }, 404);
   if (!((lease.status === "ACTIVE" || lease.status === "RENEWED") && lease.noticeGivenAt === null)) {
     return json({ error: "Notice can only be given on an active lease that has no notice yet." }, 400);
   }

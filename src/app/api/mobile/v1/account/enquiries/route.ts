@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 // GET /api/mobile/v1/account/enquiries -> the signed-in user's property inquiries.
 // (Open a thread's messages via GET /api/inquiries/{token}.)
 export async function GET(req: Request) {
-  const { user, res } = await requireMobile(req);
+  const { user, res } = await requireMobile(req, ["USER", "TENANT"]);
   if (res) return res;
   const inquiries = await prisma.propertyInquiry.findMany({
     where: { userId: user.id },

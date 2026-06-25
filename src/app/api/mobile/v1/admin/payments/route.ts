@@ -15,7 +15,27 @@ export async function GET(req: Request) {
       invoice: { select: { id: true, periodMonth: true, lease: { select: { property: { select: { name: true } } } } } },
     },
   });
+  const now = new Date();
+  const month = now.getMonth();
+  const year = now.getFullYear();
+  let totalCollected = 0;
+  let thisMonth = 0;
+  let outstanding = 0;
+  let refunded = 0;
+  for (const p of payments) {
+    const amt = Number(p.amount);
+    if (p.status === "SUCCESS") {
+      totalCollected += amt;
+      if (p.paidAt && p.paidAt.getMonth() === month && p.paidAt.getFullYear() === year) thisMonth += amt;
+    } else if (p.status === "PENDING") {
+      outstanding += amt;
+    } else if (p.status === "REFUNDED") {
+      refunded += amt;
+    }
+  }
+
   return json({
+    kpis: { totalCollected, thisMonth, outstanding, refunded },
     payments: payments.map((p) => ({
       id: p.id, amount: Number(p.amount), method: p.method, status: p.status, verified: p.verified,
       paidAt: p.paidAt, createdAt: p.createdAt, tenant: p.tenant,

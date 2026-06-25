@@ -27,14 +27,14 @@ export async function GET(req: Request) {
 }
 
 const schema = z.object({
-  propertyId: z.string().min(1, "Select your property."),
+  propertyId: z.string().optional(),
   title: z.string().min(3, "Enter a short title."),
   description: z.string().min(5, "Describe the issue."),
   priority: z.enum(["LOW", "MEDIUM", "HIGH"]).default("MEDIUM"),
   imageUrls: z.array(z.string()).optional(),
 });
 
-// POST /api/mobile/v1/tenant/maintenance  { propertyId, title, description, priority, imageUrls[] }
+// POST /api/mobile/v1/tenant/maintenance  { propertyId?, title, description, priority, imageUrls[] }
 export async function POST(req: Request) {
   const { user, res } = await requireMobile(req, "TENANT");
   if (res) return res;
@@ -42,17 +42,24 @@ export async function POST(req: Request) {
   if (!parsed.success) return json({ error: parsed.error.issues[0].message }, 400);
   const d = parsed.data;
 
-  const lease = await prisma.lease.findFirst({ where: { tenantId: user.id, propertyId: d.propertyId } });
-  if (!lease) return json({ error: "You don't have a lease on that property." }, 400);
+  // The app may omit propertyId — resolve it from the tenant's active lease.
+  const lease = d.propertyId
+    ? await prisma.lease.findFirst({ where: { tenantId: user.id, propertyId: d.propertyId } })
+    : await prisma.lease.findFirst({
+        where: { tenantId: user.id, status: { in: ["ACTIVE", "RENEWED"] } },
+        orderBy: { createdAt: "desc" },
+      });
+  if (!lease) return json({ error: "You don't have an active lease to raise a request on." }, 400);
+  const propertyId = lease.propertyId;
 
   const row = await prisma.maintenanceRequest.create({
     data: {
-      propertyId: d.propertyId, tenantId: user.id, title: d.title, description: d.description,
+      propertyId, tenantId: user.id, title: d.title, description: d.description,
       priority: d.priority, status: "PENDING", images: (d.imageUrls ?? []).slice(0, 5),
     },
   });
   await audit({ actorId: user.id, action: "maintenance.submit", entity: "MaintenanceRequest", entityId: row.id });
-  const prop = await prisma.property.findUnique({ where: { id: d.propertyId }, select: { landlordId: true } });
+  const prop = await prisma.property.findUnique({ where: { id: propertyId }, select: { landlordId: true } });
   await notify(prop?.landlordId, { type: "maintenance", title: "New maintenance request", body: d.title, link: `/landlord/maintenance/${row.id}` });
 
   return json({ ok: true, id: row.id });
