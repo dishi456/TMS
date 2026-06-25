@@ -22,6 +22,7 @@ export async function GET(req: Request) {
       leaseId: l.id,
       property: l.property,
       landlord: l.landlord,
+      endDate: l.endDate,
       existingRating: l.ratings[0]
         ? { stars: l.ratings[0].stars, feedback: l.ratings[0].feedback, recommend: l.ratings[0].recommend, criteria: l.ratings[0].criteria }
         : null,

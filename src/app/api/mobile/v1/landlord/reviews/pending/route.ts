@@ -19,7 +19,7 @@ export async function GET(req: Request) {
   });
   return json({
     leases: leases.map((l) => ({
-      leaseId: l.id, tenant: l.tenant, property: l.property,
+      leaseId: l.id, tenant: l.tenant, property: l.property, endDate: l.endDate,
       existingRating: l.ratings[0]
         ? { stars: l.ratings[0].stars, feedback: l.ratings[0].feedback, recommend: l.ratings[0].recommend, criteria: l.ratings[0].criteria }
         : null,

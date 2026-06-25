@@ -17,6 +17,21 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   });
   if (!p) return json({ error: "Listing not found." }, 404);
 
+  // Public reviews for this landlord (tenant→landlord, moderated VISIBLE only).
+  const [agg, reviews] = await Promise.all([
+    prisma.rating.aggregate({
+      where: { rateeId: p.landlord.id, direction: "TENANT_TO_LANDLORD", status: "VISIBLE" },
+      _avg: { stars: true },
+      _count: { _all: true },
+    }),
+    prisma.rating.findMany({
+      where: { rateeId: p.landlord.id, direction: "TENANT_TO_LANDLORD", status: "VISIBLE" },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: { rater: { select: { fullName: true } } },
+    }),
+  ]);
+
   return json({
     listing: {
       id: p.id, ref: p.ref, name: p.name, address: p.address, description: p.description,
@@ -32,7 +47,20 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       verified: p.verified || p.landlord.verified,
       noticePeriodDays: p.noticePeriodDays,
       photos: p.documents.map((d) => `/api/files/${d.id}`),
-      landlord: { id: p.landlord.id, fullName: p.landlord.fullName, verified: p.landlord.verified },
+      landlord: {
+        id: p.landlord.id,
+        fullName: p.landlord.fullName,
+        verified: p.landlord.verified,
+        rating: agg._avg.stars != null ? Math.round(agg._avg.stars * 10) / 10 : null,
+        ratingCount: agg._count._all,
+      },
+      reviews: reviews.map((r) => ({
+        id: r.id,
+        stars: r.stars,
+        feedback: r.feedback,
+        createdAt: r.createdAt,
+        by: r.rater.fullName,
+      })),
     },
   });
 }
