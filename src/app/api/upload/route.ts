@@ -89,6 +89,14 @@ export async function POST(req: Request) {
       return json({ error: "Unknown purpose" }, 400);
   }
 
+  // Content-type allowlist: photos must be images; documents may also be PDF.
+  // Blocks HTML/SVG/script uploads that could be served back as stored XSS.
+  const IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/heic", "image/heif", "image/gif"];
+  const allowed = type === "PHOTO" ? IMAGE_TYPES : [...IMAGE_TYPES, "application/pdf"];
+  if (!allowed.includes((file.type || "").toLowerCase())) {
+    return json({ error: "Unsupported file type. Upload an image" + (type === "PHOTO" ? "." : " or PDF.") }, 415);
+  }
+
   const bytes = Buffer.from(await file.arrayBuffer());
   const ext = path.extname(file.name).slice(0, 10);
   const key = `${prefix}/${randomUUID()}${ext}`;

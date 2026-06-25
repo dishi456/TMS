@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, emailLayout, APP_NAME } from "@/lib/email";
 import { json } from "@/lib/mobile-auth";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,10 @@ const sha256 = (s: string) => crypto.createHash("sha256").update(s).digest("hex"
 // POST /api/mobile/v1/auth/forgot  { email } -> { ok:true } (always, to avoid leaking)
 // Emails a 6-digit reset code (valid 1h). App then calls /auth/reset.
 export async function POST(req: Request) {
+  // Limit reset-email requests per IP. Still returns ok to avoid enumeration.
+  const rl = rateLimit(`forgot:${clientIp(req)}`, 6, 15 * 60 * 1000);
+  if (!rl.ok) return json({ ok: true });
+
   const { email } = await req.json().catch(() => ({}));
   const mail = String(email ?? "").trim().toLowerCase();
   const user = mail ? await prisma.user.findUnique({ where: { email: mail } }) : null;

@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { json } from "@/lib/mobile-auth";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,12 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return json({ error: parsed.error.issues[0].message }, 400);
   const { email, code, newPassword } = parsed.data;
+
+  // Cap code-guessing: 6 attempts per email + per IP per 15 minutes.
+  const mailKey = email.trim().toLowerCase();
+  if (!rateLimit(`reset:${mailKey}`, 6, 15 * 60 * 1000).ok || !rateLimit(`reset-ip:${clientIp(req)}`, 20, 15 * 60 * 1000).ok) {
+    return json({ error: "Too many attempts. Please request a new code and try again later." }, 429);
+  }
 
   const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
   if (!user) return json({ error: "Invalid or expired code." }, 400);

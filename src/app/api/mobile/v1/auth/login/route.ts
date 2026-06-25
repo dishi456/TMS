@@ -2,12 +2,17 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { signMobileToken, json } from "@/lib/mobile-auth";
 import { consumeVerifyToken } from "@/lib/otp";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // POST /api/mobile/v1/auth/login  { email, password, otp? } -> { token, user }
 export async function POST(req: Request) {
+  // Throttle password guessing: 10 attempts per IP per 5 minutes.
+  const rl = rateLimit(`login:${clientIp(req)}`, 10, 5 * 60 * 1000);
+  if (!rl.ok) return json({ error: "Too many attempts. Please wait a minute and try again." }, 429);
+
   const { email, password, otp } = await req.json().catch(() => ({}));
   const mail = String(email ?? "").trim().toLowerCase();
   const pass = String(password ?? "");
