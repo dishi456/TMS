@@ -35,9 +35,16 @@ export async function GET(
       if (m) { viewerId = m.id; viewerRole = m.role; }
     }
     if (!viewerId) return new Response("Unauthorized", { status: 401 });
-    // Sensitive docs: only the Master Admin or the owning user may view.
+    // Sensitive docs: the Master Admin or the owning user may view. A LEASE
+    // document is also viewable by BOTH parties to that lease (the contract is
+    // owned by the landlord but the tenant must be able to read it too).
     if (SENSITIVE.includes(doc.type) && viewerRole !== "MASTER_ADMIN" && doc.ownerId !== viewerId) {
-      return new Response("Forbidden", { status: 403 });
+      let allowed = false;
+      if (doc.type === "LEASE" && doc.leaseId) {
+        const lease = await prisma.lease.findUnique({ where: { id: doc.leaseId }, select: { tenantId: true, landlordId: true } });
+        allowed = !!lease && (lease.tenantId === viewerId || lease.landlordId === viewerId);
+      }
+      if (!allowed) return new Response("Forbidden", { status: 403 });
     }
   }
 
