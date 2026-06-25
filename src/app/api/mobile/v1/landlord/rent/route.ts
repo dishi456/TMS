@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     orderBy: { dueDate: "desc" },
     include: {
       lease: { select: { id: true, tenant: { select: { id: true, fullName: true } }, property: { select: { id: true, name: true } } } },
-      payments: { orderBy: { createdAt: "desc" }, select: { id: true, amount: true, method: true, status: true, paidAt: true } },
+      payments: { orderBy: { createdAt: "desc" }, select: { id: true, amount: true, method: true, status: true, paidAt: true, reference: true, receiptNumber: true, proofUrl: true } },
     },
   });
   const now = new Date();
@@ -24,21 +24,29 @@ export async function GET(req: Request) {
   let overdue = 0;
   for (const i of invoices) {
     const amt = Number(i.amount);
-    if (i.status === "PAID") {
-      const paidAt = i.payments.find((p) => p.status === "SUCCESS")?.paidAt ?? i.payments[0]?.paidAt;
-      if (paidAt && paidAt.getMonth() === month && paidAt.getFullYear() === year) collectedThisMonth += amt;
-    } else {
-      pending += amt;
-      if (i.dueDate < now) overdue += amt;
+    const paid = i.payments.filter((p) => p.status === "SUCCESS").reduce((s, p) => s + Number(p.amount), 0);
+    const balance = Math.max(0, amt - paid);
+    // collected-this-month = successful payments dated this month
+    for (const p of i.payments) {
+      if (p.status === "SUCCESS" && p.paidAt && p.paidAt.getMonth() === month && p.paidAt.getFullYear() === year) collectedThisMonth += Number(p.amount);
+    }
+    if (i.status !== "PAID" && i.status !== "CANCELLED") {
+      pending += balance;
+      if (i.dueDate < now) overdue += balance;
     }
   }
 
   return json({
     kpis: { collectedThisMonth, pending, overdue },
-    invoices: invoices.map((i) => ({
-      id: i.id, leaseId: i.leaseId, periodMonth: i.periodMonth, amount: Number(i.amount), dueDate: i.dueDate, status: i.status,
-      tenant: i.lease.tenant, property: i.lease.property,
-      payments: i.payments.map((p) => ({ ...p, amount: Number(p.amount) })),
-    })),
+    invoices: invoices.map((i) => {
+      const amount = Number(i.amount);
+      const amountPaid = i.payments.filter((p) => p.status === "SUCCESS").reduce((s, p) => s + Number(p.amount), 0);
+      return {
+        id: i.id, leaseId: i.leaseId, periodMonth: i.periodMonth, amount, dueDate: i.dueDate, status: i.status,
+        amountPaid, balance: Math.max(0, amount - amountPaid),
+        tenant: i.lease.tenant, property: i.lease.property,
+        payments: i.payments.map((p) => ({ ...p, amount: Number(p.amount) })),
+      };
+    }),
   });
 }

@@ -90,6 +90,10 @@ export async function POST(req: Request) {
       type = "PHOTO";
       prefix = `marketplace/${userId}`;
       break;
+    case "payment-proof":
+      type = "OTHER";
+      prefix = `payments/${userId}`;
+      break;
     default:
       return json({ error: "Unknown purpose" }, 400);
   }

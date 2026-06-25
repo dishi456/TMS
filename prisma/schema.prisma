@@ -63,6 +63,7 @@ enum NoticeParty {
 
 enum InvoiceStatus {
   PENDING
+  PARTIALLY_PAID
   PAID
   OVERDUE
   CANCELLED
@@ -74,6 +75,10 @@ enum PaymentMethod {
   CREDIT_CARD
   NET_BANKING
   CASH
+  BANK_TRANSFER
+  E_TRANSFER
+  CHEQUE
+  OTHER
 }
 
 enum PaymentStatus {
@@ -430,6 +435,9 @@ model Payment {
   status           PaymentStatus @default(PENDING)
   gatewayOrderId   String? // Razorpay order id
   gatewayPaymentId String? // Razorpay payment id
+  receiptNumber    String?       @unique // human receipt id e.g. PAY-2026-000125
+  reference        String?       @db.Text // transaction reference number (UPI ref, cheque no, etc.)
+  proofUrl         String?       @db.Text // uploaded payment proof (/api/files/{id})
   receiptUrl       String?       @db.Text
   paidAt           DateTime?
   verified         Boolean       @default(false) // reconciled/verified by admin
