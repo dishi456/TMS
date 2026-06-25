@@ -86,6 +86,10 @@ export async function POST(req: Request) {
       type = "PHOTO";
       prefix = `maintenance/${userId}`;
       break;
+    case "marketplace-photo":
+      type = "PHOTO";
+      prefix = `marketplace/${userId}`;
+      break;
     default:
       return json({ error: "Unknown purpose" }, 400);
   }

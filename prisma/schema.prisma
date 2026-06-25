@@ -179,6 +179,8 @@ model User {
   sentMessages     Message[]            @relation("SentMessages")
   receivedMessages Message[]            @relation("ReceivedMessages")
   inquiries        PropertyInquiry[]    @relation("UserInquiries")
+  marketplaceListings  MarketplaceListing[]  @relation("MarketplaceListings")
+  marketplaceFavorites MarketplaceFavorite[] @relation("MarketplaceFavorites")
 
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
@@ -654,4 +656,40 @@ model AuditLog {
 
   @@index([actorId])
   @@index([entity, entityId])
+}
+
+// ---- Marketplace (tenant buy/sell of household items) ----
+model MarketplaceListing {
+  id          String   @id @default(cuid())
+  seller      User     @relation("MarketplaceListings", fields: [sellerId], references: [id])
+  sellerId    String
+  title       String
+  description String?  @db.Text
+  category    String
+  condition   String   @default("GOOD") // NEW, LIKE_NEW, GOOD, FAIR
+  price       Decimal  @db.Decimal(12, 2)
+  currency    String   @default("INR")
+  location    String?
+  images      Json     @default("[]") // string[] of /api/files/{id} paths (MySQL has no array type)
+  status      String   @default("AVAILABLE") // AVAILABLE, SOLD
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  favorites   MarketplaceFavorite[]
+
+  @@index([sellerId])
+  @@index([category])
+  @@index([status])
+}
+
+model MarketplaceFavorite {
+  id        String             @id @default(cuid())
+  user      User               @relation("MarketplaceFavorites", fields: [userId], references: [id])
+  userId    String
+  listing   MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String
+  createdAt DateTime           @default(now())
+
+  @@unique([userId, listingId])
+  @@index([userId])
 }
