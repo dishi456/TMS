@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     select: {
       id: true, fullName: true, email: true, role: true, status: true,
       phone: true, avatarUrl: true, verified: true, governmentId: true,
-      emergencyContact: true, createdAt: true,
+      emergencyContact: true, createdAt: true, username: true, currency: true,
     },
   });
   return json({ user: u });

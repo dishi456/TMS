@@ -143,6 +143,11 @@ model User {
   governmentId     String?
   emergencyContact String?
   avatarUrl        String?    @db.Text
+  username         String?    @unique // unique handle shown across the app
+  currency         String?    @default("INR") // display currency preference (ISO code)
+  prefCountry      String?    // location preference: country
+  prefState        String?    // location preference: province/state
+  prefCity         String?    // location preference: city
   lastSeenAt           DateTime? // presence heartbeat for chat "online" status
   chatContactConfirmed Boolean   @default(false) // tenant confirmed name/email/phone before chatting
 
@@ -548,6 +553,9 @@ model Document {
   contentType String?
   sizeBytes   Int?
   label       String?      @db.Text
+  docNumber   String?      // ID/passport number (stored as entered; masked in API responses)
+  expiryDate  DateTime?    // document expiry, where applicable
+  verified    Boolean      @default(false) // admin-verified document
   createdAt   DateTime     @default(now())
 
   @@index([ownerId])

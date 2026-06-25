@@ -70,6 +70,7 @@ export async function POST(req: Request) {
       prefix = `users/${userId}`;
       break;
     case "verification-photo":
+    case "avatar":
       type = "PHOTO";
       prefix = `users/${userId}`;
       break;
@@ -102,6 +103,10 @@ export async function POST(req: Request) {
   const key = `${prefix}/${randomUUID()}${ext}`;
   await saveFile(key, bytes);
 
+  // For ID/profile uploads the caller passes the document type (e.g. "Passport")
+  // as refId — store it as the label so the Documents list can show the type.
+  const label = (purpose === "profile-id" || purpose === "profile-other") && refId ? refId : file.name;
+
   const doc = await prisma.document.create({
     data: {
       ownerId,
@@ -112,7 +117,7 @@ export async function POST(req: Request) {
       fileName: file.name,
       contentType: file.type || null,
       sizeBytes: bytes.length,
-      label: file.name,
+      label,
     },
   });
 
