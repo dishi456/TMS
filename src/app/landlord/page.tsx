@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { StatCard } from "@/components/StatCard";
+import { PropertyImage } from "@/components/PropertyImage";
 import { Badge } from "@/components/ui";
 import { formatMoney, formatNumber } from "@/lib/format";
 
@@ -136,12 +137,7 @@ export default async function LandlordHome() {
               return (
                 <Link key={p.id} href={`/landlord/properties/${p.id}`} className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
                   <div className="relative aspect-square bg-slate-100">
-                    {url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={url} alt={p.name} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-3xl text-slate-300">🏢</div>
-                    )}
+                    <PropertyImage src={url} alt={p.name} emoji="🏢" className="transition-transform group-hover:scale-105" />
                     <span className="absolute left-1.5 top-1.5">
                       <Badge tone={occupied ? "green" : "amber"}>{occupied ? "Occupied" : "Vacant"}</Badge>
                     </span>

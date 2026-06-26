@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, Badge } from "@/components/ui";
 import { StatCard } from "@/components/StatCard";
+import { PropertyImage } from "@/components/PropertyImage";
 import { formatMoney, formatNumber } from "@/lib/format";
 import { propertyPath } from "@/lib/property-path";
 
@@ -60,12 +61,7 @@ export default async function TenantHome() {
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="grid sm:grid-cols-[16rem_1fr]">
           <div className="relative h-44 bg-slate-100 sm:h-auto">
-            {heroPhoto ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={heroPhoto} alt={lease!.property.name} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-5xl text-slate-300">🏠</div>
-            )}
+            <PropertyImage src={heroPhoto} alt={lease?.property.name ?? "Property"} />
           </div>
           <div className="p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Your residence</p>
@@ -156,12 +152,7 @@ export default async function TenantHome() {
               return (
                 <Link key={p.id} href={propertyPath(p)} className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
                   <div className="aspect-square bg-slate-100">
-                    {url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={url} alt={p.name} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-3xl text-slate-300">🏠</div>
-                    )}
+                    <PropertyImage src={url} alt={p.name} className="transition-transform group-hover:scale-105" />
                   </div>
                   <div className="p-2">
                     <p className="line-clamp-1 text-xs font-semibold text-slate-800">{p.name}</p>
