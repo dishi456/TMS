@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { StatCard } from "@/components/StatCard";
+import { Badge } from "@/components/ui";
 import { formatMoney, formatNumber } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,7 @@ export default async function LandlordHome() {
     pendingApps,
     pendingVisits,
     newEnquiries,
+    recentProperties,
   ] = await Promise.all([
     prisma.user.findUnique({ where: { id: landlordId }, select: { verified: true } }),
     prisma.property.count({ where: { landlordId } }),
@@ -52,8 +54,18 @@ export default async function LandlordHome() {
     prisma.application.count({ where: { status: "PENDING", property: { landlordId } } }),
     prisma.visit.count({ where: { status: "PENDING", property: { landlordId } } }),
     prisma.inquiryMessage.count({ where: { fromGuest: true, readByLandlord: false, inquiry: { landlordId } } }),
+    prisma.property.findMany({
+      where: { landlordId },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      select: {
+        id: true, name: true, address: true, rentAmount: true, approved: true, listedPublic: true,
+        documents: { where: { type: "PHOTO" }, orderBy: { createdAt: "asc" }, take: 1, select: { id: true } },
+      },
+    }),
   ]);
 
+  const occupiedSet = new Set(occupiedProps.map((l) => l.propertyId));
   const occupiedCount = occupiedProps.length;
   const vacantCount = Math.max(0, totalProperties - occupiedCount);
   const totalRequests = pendingApps + pendingVisits + newEnquiries;
@@ -109,6 +121,42 @@ export default async function LandlordHome() {
           </Link>
         ))}
       </div>
+
+      {/* Your properties — photo cards */}
+      {recentProperties.length > 0 && (
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Your properties</h2>
+            <Link href="/landlord/properties" className="text-sm font-medium text-blue-600 hover:text-blue-700">View all →</Link>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            {recentProperties.map((p) => {
+              const url = p.documents[0] ? `/api/files/${p.documents[0].id}` : null;
+              const occupied = occupiedSet.has(p.id);
+              return (
+                <Link key={p.id} href={`/landlord/properties/${p.id}`} className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+                  <div className="relative aspect-square bg-slate-100">
+                    {url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={url} alt={p.name} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-3xl text-slate-300">🏢</div>
+                    )}
+                    <span className="absolute left-1.5 top-1.5">
+                      <Badge tone={occupied ? "green" : "amber"}>{occupied ? "Occupied" : "Vacant"}</Badge>
+                    </span>
+                    {!p.approved && <span className="absolute right-1.5 top-1.5"><Badge tone="slate">Pending</Badge></span>}
+                  </div>
+                  <div className="p-2">
+                    <p className="line-clamp-1 text-xs font-semibold text-slate-800">{p.name}</p>
+                    <p className="text-xs font-bold text-slate-900">{formatMoney(p.rentAmount)}<span className="font-normal text-slate-400">/mo</span></p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Quick actions</h2>
