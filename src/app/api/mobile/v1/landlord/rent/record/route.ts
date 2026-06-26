@@ -28,11 +28,12 @@ export async function POST(req: Request) {
   const inv = await prisma.invoice.findFirst({
     where: { id: d.invoiceId, lease: { landlordId: user.id } },
     include: {
-      lease: { select: { tenantId: true } },
+      lease: { select: { tenantId: true, signedContractUrl: true } },
       payments: { where: { status: "SUCCESS" }, select: { amount: true } },
     },
   });
   if (!inv) return json({ error: "Invoice not found." }, 404);
+  if (!inv.lease.signedContractUrl) return json({ error: "Upload the signed lease agreement before recording payments." }, 400);
 
   const invoiceAmount = Number(inv.amount);
   const paidSoFar = inv.payments.reduce((s, p) => s + Number(p.amount), 0);

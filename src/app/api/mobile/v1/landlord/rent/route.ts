@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     where: { lease: { landlordId: user.id } },
     orderBy: { dueDate: "desc" },
     include: {
-      lease: { select: { id: true, tenant: { select: { id: true, fullName: true } }, property: { select: { id: true, name: true } } } },
+      lease: { select: { id: true, signedContractUrl: true, tenant: { select: { id: true, fullName: true } }, property: { select: { id: true, name: true } } } },
       payments: { orderBy: { createdAt: "desc" }, select: { id: true, amount: true, method: true, status: true, paidAt: true, reference: true, receiptNumber: true, proofUrl: true } },
     },
   });
@@ -44,6 +44,8 @@ export async function GET(req: Request) {
       return {
         id: i.id, leaseId: i.leaseId, periodMonth: i.periodMonth, amount, dueDate: i.dueDate, status: i.status,
         amountPaid, balance: Math.max(0, amount - amountPaid),
+        // Payments can only be recorded once the lease agreement is in place.
+        hasAgreement: !!i.lease.signedContractUrl,
         tenant: i.lease.tenant, property: i.lease.property,
         payments: i.payments.map((p) => ({ ...p, amount: Number(p.amount) })),
       };
