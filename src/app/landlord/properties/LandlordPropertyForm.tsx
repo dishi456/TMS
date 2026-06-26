@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { createProperty, updateProperty, type FormState } from "./actions";
 import { FieldLabel, inputClass, btn } from "@/components/ui";
+import { PROPERTY_TYPES, propertyTypeLabel, showsResidentialLayout, TYPE_FIELDS } from "@/lib/property-details";
 
-const TYPES = ["APARTMENT", "HOUSE", "ROOM", "COMMERCIAL", "OTHER"] as const;
 const AVAIL = ["AVAILABLE", "OCCUPIED", "UNAVAILABLE"] as const;
 
 export type PropertyDefaults = {
@@ -38,6 +38,7 @@ export type PropertyDefaults = {
   amenities?: string;
   availability?: string;
   listedPublic?: boolean;
+  details?: Record<string, unknown>;
 };
 
 const FURNISHING = ["UNFURNISHED", "SEMI_FURNISHED", "FURNISHED"] as const;
@@ -49,6 +50,10 @@ const titleCase = (s: string) => s.charAt(0) + s.slice(1).toLowerCase();
 export function LandlordPropertyForm({ mode, defaults = {} }: { mode: "create" | "edit"; defaults?: PropertyDefaults }) {
   const action = mode === "create" ? createProperty : updateProperty;
   const [state, formAction, pending] = useActionState<FormState, FormData>(action, undefined);
+  // The chosen type drives which extra fields show — that's the "dynamic form".
+  const [type, setType] = useState<string>(defaults.type ?? "APARTMENT");
+  const details = defaults.details ?? {};
+  const typeFields = TYPE_FIELDS[type] ?? [];
 
   return (
     <form action={formAction} className="space-y-4">
@@ -61,8 +66,8 @@ export function LandlordPropertyForm({ mode, defaults = {} }: { mode: "create" |
         </label>
         <label className="flex flex-col gap-1">
           <FieldLabel>Type</FieldLabel>
-          <select name="type" defaultValue={defaults.type ?? "APARTMENT"} className={inputClass}>
-            {TYPES.map((t) => <option key={t} value={t}>{t.charAt(0) + t.slice(1).toLowerCase()}</option>)}
+          <select name="type" value={type} onChange={(e) => setType(e.target.value)} className={inputClass}>
+            {PROPERTY_TYPES.map((t) => <option key={t} value={t}>{propertyTypeLabel(t)}</option>)}
           </select>
         </label>
         <label className="flex flex-col gap-1">
@@ -101,7 +106,8 @@ export function LandlordPropertyForm({ mode, defaults = {} }: { mode: "create" |
         </label>
       </div>
 
-      {/* Features & layout — visible to landlord, admin and tenant */}
+      {/* Features & layout — residential types only */}
+      {showsResidentialLayout(type) && (
       <div className="rounded-lg border border-slate-200 p-3">
         <FieldLabel>Features &amp; layout</FieldLabel>
         <div className="mt-2 grid gap-4 sm:grid-cols-3">
@@ -143,6 +149,39 @@ export function LandlordPropertyForm({ mode, defaults = {} }: { mode: "create" |
           <label className="flex items-center gap-2"><input type="checkbox" name="powerBackup" value="true" defaultChecked={defaults.powerBackup} className="h-4 w-4 rounded border-slate-300" /> Power backup</label>
         </div>
       </div>
+      )}
+
+      {/* Type-specific details — the dynamic part of the form. Keyed on `type` so
+          fields remount with the right defaults when the type changes. */}
+      {typeFields.length > 0 && (
+        <div key={type} className="rounded-lg border border-slate-200 p-3">
+          <FieldLabel>{propertyTypeLabel(type)} details</FieldLabel>
+          <div className="mt-2 grid gap-4 sm:grid-cols-3">
+            {typeFields.filter((f) => f.kind !== "checkbox").map((f) => (
+              <label key={f.key} className="flex flex-col gap-1">
+                <span className="text-xs text-slate-500">{f.label}</span>
+                {f.kind === "select" ? (
+                  <select name={`detail__${f.key}`} defaultValue={(details[f.key] as string) ?? ""} className={inputClass}>
+                    <option value="">Not specified</option>
+                    {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : (
+                  <input name={`detail__${f.key}`} type={f.kind === "number" ? "number" : "text"} defaultValue={(details[f.key] as string | number | undefined) ?? ""} placeholder={f.kind === "text" ? f.placeholder : undefined} className={inputClass} />
+                )}
+              </label>
+            ))}
+          </div>
+          {typeFields.some((f) => f.kind === "checkbox") && (
+            <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-600">
+              {typeFields.filter((f) => f.kind === "checkbox").map((f) => (
+                <label key={f.key} className="flex items-center gap-2">
+                  <input type="checkbox" name={`detail__${f.key}`} value="true" defaultChecked={!!details[f.key]} className="h-4 w-4 rounded border-slate-300" /> {f.label}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Listing details — OLX-style extras */}
       <div className="rounded-lg border border-slate-200 p-3">

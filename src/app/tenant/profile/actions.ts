@@ -6,18 +6,27 @@ import { randomUUID } from "crypto";
 import path from "path";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/auth-helpers";
 import { saveFile, removeFile } from "@/lib/storage";
+import { CURRENCIES, USERNAME_RE } from "@/lib/profile";
 
 export type FormState = { error?: string; success?: string } | undefined;
 const MAX_BYTES = 8 * 1024 * 1024;
 
+const optional = (s: string) => (s.trim() === "" ? undefined : s.trim());
+
 const profileSchema = z.object({
   fullName: z.string().min(2, "Enter your name."),
+  username: z.preprocess(optional, z.string().regex(USERNAME_RE, "Username must be 3–20 letters, numbers or underscores.").optional()),
   phone: z.string().trim().optional(),
   governmentId: z.string().trim().optional(),
   emergencyContact: z.string().trim().optional(),
+  currency: z.preprocess(optional, z.enum(CURRENCIES).optional()),
+  prefCountry: z.string().trim().optional(),
+  prefState: z.string().trim().optional(),
+  prefCity: z.string().trim().optional(),
 });
 
 export async function updateProfile(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -25,15 +34,31 @@ export async function updateProfile(_prev: FormState, formData: FormData): Promi
   const parsed = profileSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const d = parsed.data;
-  await prisma.user.update({
-    where: { id: session.user.id },
-    data: {
-      fullName: d.fullName,
-      phone: d.phone || null,
-      governmentId: d.governmentId || null,
-      emergencyContact: d.emergencyContact || null,
-    },
-  });
+
+  if (d.username) {
+    const taken = await prisma.user.findFirst({ where: { username: d.username, NOT: { id: session.user.id } }, select: { id: true } });
+    if (taken) return { error: "That username is already taken." };
+  }
+
+  try {
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: {
+        fullName: d.fullName,
+        username: d.username ?? null,
+        phone: d.phone || null,
+        governmentId: d.governmentId || null,
+        emergencyContact: d.emergencyContact || null,
+        ...(d.currency ? { currency: d.currency } : {}),
+        prefCountry: d.prefCountry || null,
+        prefState: d.prefState || null,
+        prefCity: d.prefCity || null,
+      },
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return { error: "That username is already taken." };
+    throw e;
+  }
   revalidatePath("/tenant/profile");
   return { success: "Profile updated." };
 }

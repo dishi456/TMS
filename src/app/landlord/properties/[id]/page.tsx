@@ -147,6 +147,7 @@ export default async function LandlordPropertyDetail({
                 listedPublic: property.listedPublic,
                 amenities: toStrArr(property.amenities).join(", "),
                 availability: property.availability,
+                details: (property.details as Record<string, unknown>) ?? undefined,
               }}
             />
           </Card>

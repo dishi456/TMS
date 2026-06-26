@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { TenantShell } from "@/components/TenantShell";
+import { chatUnreadCount } from "@/lib/chat";
 import { logout } from "@/app/actions/auth";
 
 export const metadata: Metadata = {
@@ -40,10 +41,13 @@ export default async function TenantLayout({
     );
   }
 
-  const unread = await prisma.notification.count({ where: { userId: tenantId, read: false } });
+  const [unread, propertyChatUnread] = await Promise.all([
+    prisma.notification.count({ where: { userId: tenantId, read: false } }),
+    chatUnreadCount(tenantId),
+  ]);
 
   return (
-    <TenantShell userName={session?.user?.name ?? "Tenant"} unread={unread}>
+    <TenantShell userName={session?.user?.name ?? "Tenant"} unread={unread} propertyChatUnread={propertyChatUnread}>
       {children}
     </TenantShell>
   );

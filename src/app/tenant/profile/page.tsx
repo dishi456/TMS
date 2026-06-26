@@ -5,6 +5,8 @@ import { Card } from "@/components/ui";
 import { ProfileForm, PasswordForm } from "./ProfileForms";
 import { deleteProfileDoc } from "./actions";
 import { ImageUploader } from "@/components/ImageUploader";
+import { AvatarUploader } from "@/components/AvatarUploader";
+import { tenantCompletion } from "@/lib/profile";
 
 export const metadata: Metadata = { title: "Profile" };
 export const dynamic = "force-dynamic";
@@ -24,12 +26,30 @@ export default async function TenantProfilePage({
   ]);
   if (!user) return null;
 
+  const completion = tenantCompletion(user);
+
   return (
     <div className="space-y-5">
       <h1 className="text-lg font-semibold text-slate-800">My Profile</h1>
       {sp.uploaded && <Banner tone="green">Document uploaded.</Banner>}
       {sp.error === "nofile" && <Banner tone="amber">Please choose a file.</Banner>}
       {sp.error === "toobig" && <Banner tone="amber">File too large (max 8 MB).</Banner>}
+
+      <Card>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <AvatarUploader avatarUrl={user.avatarUrl} name={user.fullName} />
+          <div className="sm:w-56">
+            <div className="mb-1 flex items-center justify-between text-xs">
+              <span className="font-medium text-slate-600">Profile completion</span>
+              <span className="font-semibold text-slate-800">{completion}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full rounded-full bg-blue-600 transition-[width]" style={{ width: `${completion}%` }} />
+            </div>
+            {completion < 100 && <p className="mt-1.5 text-[11px] text-slate-400">Add a photo, username, phone, ID &amp; emergency contact to reach 100%.</p>}
+          </div>
+        </div>
+      </Card>
 
       <div className="grid gap-5 lg:grid-cols-2">
         <div>
@@ -39,9 +59,14 @@ export default async function TenantProfilePage({
               defaults={{
                 fullName: user.fullName,
                 email: user.email,
+                username: user.username ?? undefined,
                 phone: user.phone ?? undefined,
                 governmentId: user.governmentId ?? undefined,
                 emergencyContact: user.emergencyContact ?? undefined,
+                currency: user.currency ?? undefined,
+                prefCountry: user.prefCountry ?? undefined,
+                prefState: user.prefState ?? undefined,
+                prefCity: user.prefCity ?? undefined,
               }}
             />
           </Card>
