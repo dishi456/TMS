@@ -135,6 +135,30 @@ export async function setUserVerified(formData: FormData) {
   revalidatePath(`/master-admin/users/${id}`);
 }
 
+// ---- Change role (RBAC management) ----
+const ROLES = ["USER", "TENANT", "LANDLORD", "MASTER_ADMIN"] as const;
+export async function changeUserRole(formData: FormData) {
+  const session = await requireAdmin();
+  const id = String(formData.get("id"));
+  const roleRaw = String(formData.get("role"));
+  const role = (ROLES as readonly string[]).includes(roleRaw) ? (roleRaw as (typeof ROLES)[number]) : null;
+  const back = `/master-admin/users/${id}`;
+  if (!role) redirect(`${back}?error=bad-role`);
+  // An admin can't change their own role (avoid locking themselves out).
+  if (id === session.user.id) redirect(`${back}?error=self-role`);
+
+  const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+  if (!target) redirect("/master-admin/users");
+  if (target.role === role) redirect(`${back}?role=ok`);
+
+  await prisma.user.update({ where: { id }, data: { role } });
+  await audit({ actorId: session.user.id, action: "user.roleChange", entity: "User", entityId: id, metadata: { from: target.role, to: role } });
+  await notify(id, { type: "account", title: "Your account role changed", body: `An administrator set your role to ${role.replace("_", " ").toLowerCase()}.`, link: "/" });
+  revalidatePath("/master-admin/users");
+  revalidatePath(back);
+  redirect(`${back}?role=ok`);
+}
+
 // ---- Delete (blocked when the user has dependent records) ----
 export async function deleteUser(formData: FormData) {
   const session = await requireAdmin();

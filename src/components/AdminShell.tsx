@@ -16,6 +16,8 @@ const NAV: NavItem[] = [
   { href: "/master-admin/payments", label: "Payments", icon: "card", mobile: true },
   { href: "/master-admin/maintenance", label: "Maintenance", icon: "wrench" },
   { href: "/master-admin/reviews", label: "Reviews", icon: "star", mobile: true },
+  { href: "/master-admin/marketplace", label: "Marketplace", icon: "bag" },
+  { href: "/master-admin/chat", label: "Chat Moderation", icon: "chat" },
   { href: "/master-admin/automation", label: "Rent Automation", icon: "bolt" },
   { href: "/master-admin/activity", label: "Activity Log", icon: "activity" },
   { href: "/master-admin/notifications", label: "Notifications", icon: "bell" },
@@ -205,6 +207,16 @@ const icons = {
   bolt: (
     <svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+    </svg>
+  ),
+  bag: (
+    <svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" />
+    </svg>
+  ),
+  chat: (
+    <svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   ),
   bell: (
