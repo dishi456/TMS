@@ -26,7 +26,7 @@ const schema = z.object({
   criteria: z.object({ rentDiscipline: star, propertyMaintenance: star, communication: star, ruleCompliance: star, conduct: star }),
 });
 
-// POST /api/mobile/v1/landlord/reviews -> rate the tenant (lease must have ended)
+// POST /api/mobile/v1/landlord/reviews -> rate the tenant (current or ended lease)
 export async function POST(req: Request) {
   const { user, res } = await requireMobile(req, "LANDLORD");
   if (res) return res;
@@ -35,9 +35,9 @@ export async function POST(req: Request) {
   const d = parsed.data;
 
   const lease = await prisma.lease.findFirst({
-    where: { id: d.leaseId, landlordId: user.id, status: { in: ["COMPLETED", "EXPIRED", "TERMINATED"] } },
+    where: { id: d.leaseId, landlordId: user.id, status: { in: ["ACTIVE", "RENEWED", "COMPLETED", "EXPIRED", "TERMINATED"] } },
   });
-  if (!lease) return json({ error: "You can only rate tenants after the lease has ended." }, 400);
+  if (!lease) return json({ error: "You can only rate tenants on one of your leases." }, 400);
 
   await prisma.rating.upsert({
     where: { leaseId_direction: { leaseId: d.leaseId, direction: "LANDLORD_TO_TENANT" } },
