@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { Card, Badge } from "@/components/ui";
-import { StatCard } from "@/components/StatCard";
+import { Badge } from "@/components/ui";
+import { GradientStat } from "@/components/GradientStat";
+import { NotificationFeed } from "@/components/NotificationFeed";
 import { PropertyImage } from "@/components/PropertyImage";
 import { formatMoney, formatNumber } from "@/lib/format";
 import { propertyPath } from "@/lib/property-path";
@@ -24,6 +25,7 @@ function leaseProgress(start: Date, end: Date): number {
 export default async function TenantHome() {
   const session = await auth();
   const tenantId = session!.user.id;
+  const firstName = (session?.user?.name ?? "there").split(" ")[0];
 
   const lease = await prisma.lease.findFirst({
     where: { tenantId, status: { in: ["ACTIVE", "RENEWED"] } },
@@ -43,8 +45,7 @@ export default async function TenantHome() {
     prisma.maintenanceRequest.count({ where: { tenantId, status: { in: ["PENDING", "ASSIGNED", "IN_PROGRESS"] } } }),
     prisma.complaint.count({ where: { tenantId, status: { in: ["OPEN", "REOPENED", "RESPONDED"] } } }),
     prisma.rating.aggregate({ _avg: { stars: true }, where: { rateeId: tenantId, status: "VISIBLE" } }),
-    prisma.notification.findMany({ where: { userId: tenantId }, orderBy: { createdAt: "desc" }, take: 4 }),
-    // Photo-rich discovery row: live, public, available homes.
+    prisma.notification.findMany({ where: { userId: tenantId }, orderBy: { createdAt: "desc" }, take: 5 }),
     prisma.property.findMany({
       where: { approved: true, listedPublic: true, availability: "AVAILABLE", NOT: lease ? { id: lease.propertyId } : undefined },
       orderBy: { createdAt: "desc" },
@@ -54,39 +55,40 @@ export default async function TenantHome() {
   ]);
 
   const heroPhoto = lease ? photoUrl(lease.property.documents) : null;
+  const progress = lease ? Math.round(leaseProgress(lease.startDate, lease.endDate) * 100) : 0;
 
   return (
-    <div className="space-y-5">
-      {/* Residence hero — now with the property photo */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="grid sm:grid-cols-[16rem_1fr]">
-          <div className="relative h-44 bg-slate-100 sm:h-auto">
+    <div className="space-y-6">
+      {/* Residence hero with gradient accent */}
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="grid sm:grid-cols-[18rem_1fr]">
+          <div className="relative h-48 bg-slate-100 sm:h-auto">
             <PropertyImage src={heroPhoto} alt={lease?.property.name ?? "Property"} />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent sm:bg-gradient-to-r sm:from-transparent sm:to-black/10" />
           </div>
-          <div className="p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Your residence</p>
-            <p className="mt-1 text-lg font-semibold text-slate-800">{lease?.property.name ?? "No active lease"}</p>
+          <div className="bg-gradient-to-br from-white to-blue-50/50 p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Welcome back, {firstName} 👋</p>
+            <p className="mt-1 text-xl font-bold text-slate-900">{lease?.property.name ?? "No active lease"}</p>
             {lease ? (
               <>
                 <p className="text-sm text-slate-500">{lease.property.address} · landlord {lease.landlord.fullName}</p>
-                <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
-                  {lease.property.rooms != null && <Badge tone="slate">{lease.property.rooms} bd</Badge>}
-                  {lease.property.bathrooms != null && <Badge tone="slate">{lease.property.bathrooms} ba</Badge>}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {lease.property.rooms != null && <Badge tone="sky">{lease.property.rooms} bd</Badge>}
+                  {lease.property.bathrooms != null && <Badge tone="sky">{lease.property.bathrooms} ba</Badge>}
                   {lease.property.areaSqft != null && <Badge tone="slate">{formatNumber(lease.property.areaSqft)} sq ft</Badge>}
                 </div>
-                {/* Lease progress */}
-                <div className="mt-3">
-                  <div className="mb-1 flex items-center justify-between text-[11px] text-slate-400">
-                    <span>{lease.startDate.toLocaleDateString("en-US")}</span>
-                    <span>{lease.endDate.toLocaleDateString("en-US")}</span>
+                <div className="mt-4">
+                  <div className="mb-1 flex items-center justify-between text-[11px] text-slate-500">
+                    <span>Lease progress · {progress}%</span>
+                    <span>{lease.startDate.toLocaleDateString("en-US")} → {lease.endDate.toLocaleDateString("en-US")}</span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-200">
-                    <div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.round(leaseProgress(lease.startDate, lease.endDate) * 100)}%` }} />
+                  <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
+                    <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-600" style={{ width: `${progress}%` }} />
                   </div>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-3 text-sm">
-                  <Link href="/tenant/lease" className="font-medium text-blue-600 hover:text-blue-700">View lease →</Link>
-                  <Link href="/tenant/chat" className="font-medium text-blue-600 hover:text-blue-700">Message landlord →</Link>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link href="/tenant/lease" className="rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition-transform hover:-translate-y-0.5">View lease</Link>
+                  <Link href="/tenant/chat" className="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Message landlord</Link>
                 </div>
               </>
             ) : (
@@ -96,65 +98,55 @@ export default async function TenantHome() {
         </div>
       </div>
 
+      {/* Gradient KPI tiles */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <StatCard tone="light" label="Next Rent Due" value={nextInvoice ? formatMoney(nextInvoice.amount) : "—"} hint={nextInvoice ? nextInvoice.dueDate.toLocaleDateString("en-US") : "nothing due"} />
-        <StatCard tone="light" label="Monthly Rent" value={lease ? formatMoney(lease.monthlyRent) : "—"} />
-        <StatCard tone="light" label="Total Paid" value={formatMoney(paidAgg._sum.amount)} hint={`${formatNumber(paidAgg._count)} payments`} />
-        <StatCard tone="light" label="Maintenance" value={formatNumber(openMaintenance)} hint="open" />
-        <StatCard tone="light" label="Complaints" value={formatNumber(openComplaints)} hint="open" />
-        <StatCard tone="light" label="My Rating" value={ratingAgg._avg.stars ? ratingAgg._avg.stars.toFixed(1) : "—"} hint="out of 5" />
+        <GradientStat label="Next Rent Due" icon="📅" gradient="from-rose-500 to-red-500" value={nextInvoice ? formatMoney(nextInvoice.amount) : "—"} hint={nextInvoice ? `by ${nextInvoice.dueDate.toLocaleDateString("en-US")}` : "nothing due"} href="/tenant/payments" />
+        <GradientStat label="Monthly Rent" icon="🏠" gradient="from-blue-500 to-indigo-600" value={lease ? formatMoney(lease.monthlyRent) : "—"} href="/tenant/lease" />
+        <GradientStat label="Total Paid" icon="💳" gradient="from-emerald-500 to-teal-600" value={formatMoney(paidAgg._sum.amount)} hint={`${formatNumber(paidAgg._count)} payments`} href="/tenant/payments" />
+        <GradientStat label="Maintenance" icon="🔧" gradient="from-amber-500 to-orange-500" value={formatNumber(openMaintenance)} hint="open" href="/tenant/maintenance" />
+        <GradientStat label="Complaints" icon="📣" gradient="from-fuchsia-500 to-pink-600" value={formatNumber(openComplaints)} hint="open" href="/tenant/complaints" />
+        <GradientStat label="My Rating" icon="⭐" gradient="from-violet-500 to-purple-600" value={ratingAgg._avg.stars ? ratingAgg._avg.stars.toFixed(1) : "—"} hint="out of 5" href="/tenant/reviews" />
       </div>
 
+      {/* Rent-due callout + notifications */}
       <div className="grid gap-5 lg:grid-cols-2">
-        {nextInvoice && (
-          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-            <p className="text-sm font-medium text-blue-900">Rent due: {formatMoney(nextInvoice.amount)}</p>
-            <p className="text-xs text-blue-700">Due by {nextInvoice.dueDate.toLocaleDateString("en-US")}</p>
-            <Link href="/tenant/payments" className="mt-2 inline-block rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-              Pay now
-            </Link>
+        {nextInvoice ? (
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-700 p-5 text-white shadow-sm">
+            <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10" />
+            <p className="relative text-xs font-medium uppercase tracking-wide text-white/80">Upcoming payment</p>
+            <p className="relative mt-1 text-3xl font-bold">{formatMoney(nextInvoice.amount)}</p>
+            <p className="relative text-sm text-white/80">Due by {nextInvoice.dueDate.toLocaleDateString("en-US", { month: "long", day: "numeric" })}</p>
+            <Link href="/tenant/payments" className="relative mt-3 inline-block rounded-lg bg-white px-4 py-2 text-sm font-semibold text-indigo-700 shadow-sm transition-transform hover:-translate-y-0.5">Pay now →</Link>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-5">
+            <span className="text-3xl">✅</span>
+            <div>
+              <p className="text-sm font-semibold text-emerald-800">No rent due</p>
+              <p className="text-xs text-emerald-700">You&apos;re all paid up. Nice work!</p>
+            </div>
           </div>
         )}
 
-        <div>
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Notifications</h2>
-          <Card>
-            {notifications.length === 0 ? (
-              <p className="text-sm text-slate-400">No notifications.</p>
-            ) : (
-              <ul className="space-y-2 text-sm">
-                {notifications.map((n) => (
-                  <li key={n.id} className={`flex items-start gap-2 ${n.read ? "text-slate-500" : "text-slate-800"}`}>
-                    {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-500" />}
-                    <span>
-                      <span className="font-medium">{n.title}</span>
-                      {n.body && <span className="block text-xs text-slate-400">{n.body}</span>}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <Link href="/tenant/notifications" className="mt-2 inline-block text-sm font-medium text-blue-600 hover:text-blue-700">View all →</Link>
-          </Card>
-        </div>
+        <NotificationFeed items={notifications} href="/tenant/notifications" />
       </div>
 
       {/* Photo-rich discovery row */}
       {discover.length > 0 && (
         <section>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Homes you might like</h2>
-            <Link href="/listings" className="text-sm font-medium text-blue-600 hover:text-blue-700">Browse all →</Link>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-800">Homes you might like</h2>
+            <Link href="/tenant/marketplace" className="text-sm font-medium text-blue-600 hover:text-blue-700">Browse all →</Link>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
             {discover.map((p) => {
               const url = photoUrl(p.documents);
               return (
-                <Link key={p.id} href={propertyPath(p)} className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+                <Link key={p.id} href={propertyPath(p)} className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
                   <div className="aspect-square bg-slate-100">
                     <PropertyImage src={url} alt={p.name} className="transition-transform group-hover:scale-105" />
                   </div>
-                  <div className="p-2">
+                  <div className="p-2.5">
                     <p className="line-clamp-1 text-xs font-semibold text-slate-800">{p.name}</p>
                     <p className="text-xs font-bold text-slate-900">{formatMoney(p.rentAmount)}<span className="font-normal text-slate-400">/mo</span></p>
                   </div>
