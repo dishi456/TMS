@@ -14,5 +14,6 @@ export async function POST(req: Request) {
 
   const result = await sendOtp(String(email ?? ""), p);
   if (!result.ok) return new Response(result.error, { status: 429 });
-  return Response.json({ ok: true });
+  // devCode is only present outside production (lets the app show it without email).
+  return Response.json({ ok: true, devCode: result.devCode });
 }
