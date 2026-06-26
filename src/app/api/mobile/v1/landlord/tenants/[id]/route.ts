@@ -37,6 +37,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
 
   const blacklist = await prisma.blacklist.findUnique({ where: { landlordId_tenantId: { landlordId: user.id, tenantId: id } }, select: { reason: true, createdAt: true } });
 
+  // The tenant's uploaded identity documents, so the landlord can review + verify.
+  const docs = await prisma.document.findMany({
+    where: { ownerId: id, type: { in: ["GOVERNMENT_ID", "OTHER"] } },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, label: true, docNumber: true, expiryDate: true, verified: true, contentType: true, createdAt: true },
+  });
+  const mask = (n: string | null) => (!n ? null : n.length <= 4 ? n : `•••• ${n.slice(-4)}`);
+
   const agg = await prisma.rating.aggregate({ where: { rateeId: id, direction: "LANDLORD_TO_TENANT", status: "VISIBLE" }, _avg: { stars: true }, _count: { _all: true } });
 
   return json({
@@ -49,5 +57,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       property: l.property, landlord: l.landlord, mine: l.landlordId === user.id,
     })),
     reviews: reviews.map((r) => ({ id: r.id, stars: r.stars, feedback: r.feedback, recommend: r.recommend, by: r.rater.fullName, property: r.lease?.property?.name ?? null, createdAt: r.createdAt })),
+    documents: docs.map((d) => ({
+      id: d.id,
+      type: d.label || "Document",
+      numberMasked: mask(d.docNumber),
+      expiryDate: d.expiryDate,
+      verified: d.verified,
+      verificationStatus: d.verified ? "VERIFIED" : "PENDING",
+      isImage: (d.contentType || "").startsWith("image/"),
+      url: `/api/files/${d.id}`,
+      createdAt: d.createdAt,
+    })),
   });
 }

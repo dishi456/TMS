@@ -45,6 +45,11 @@ export async function GET(
         if (doc.type === "LEASE" && doc.leaseId) {
           const lease = await prisma.lease.findUnique({ where: { id: doc.leaseId }, select: { tenantId: true, landlordId: true } });
           allowed = !!lease && (lease.tenantId === viewerId || lease.landlordId === viewerId);
+        } else if (doc.type === "GOVERNMENT_ID" && viewerRole === "LANDLORD") {
+          // A landlord may view the identity documents of a tenant they share a
+          // lease with (for vetting / verification).
+          const shared = await prisma.lease.findFirst({ where: { landlordId: viewerId, tenantId: doc.ownerId }, select: { id: true } });
+          allowed = !!shared;
         }
       } else if (doc.type === "OTHER" && key.startsWith("payments/")) {
         // Payment proof (bank/UPI screenshot): only the paying tenant and the
