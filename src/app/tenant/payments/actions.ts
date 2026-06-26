@@ -15,9 +15,8 @@ export async function payInvoice(formData: FormData) {
   const session = await requireTenant();
   const invoiceId = String(formData.get("invoiceId"));
   const method = String(formData.get("method"));
-  const allowed = ["UPI", "DEBIT_CARD", "CREDIT_CARD", "NET_BANKING", "CASH"];
-  const payMethod = (allowed.includes(method) ? method : "UPI") as
-    | "UPI" | "DEBIT_CARD" | "CREDIT_CARD" | "NET_BANKING" | "CASH";
+  const ALLOWED = ["UPI", "DEBIT_CARD", "CREDIT_CARD", "NET_BANKING", "CASH", "BANK_TRANSFER", "E_TRANSFER", "CHEQUE", "OTHER"] as const;
+  const payMethod = (ALLOWED.includes(method as (typeof ALLOWED)[number]) ? method : "UPI") as (typeof ALLOWED)[number];
 
   const invoice = await prisma.invoice.findFirst({
     where: { id: invoiceId, lease: { tenantId: session.user.id }, status: { in: ["PENDING", "OVERDUE"] } },

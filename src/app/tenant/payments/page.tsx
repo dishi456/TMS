@@ -12,7 +12,7 @@ import { RazorpayButton } from "./RazorpayButton";
 export const metadata: Metadata = { title: "Pay Rent" };
 export const dynamic = "force-dynamic";
 
-const METHODS = ["UPI", "DEBIT_CARD", "CREDIT_CARD", "NET_BANKING", "CASH"];
+const METHODS = ["UPI", "DEBIT_CARD", "CREDIT_CARD", "NET_BANKING", "CASH", "BANK_TRANSFER", "E_TRANSFER", "CHEQUE", "OTHER"];
 const cap = (s: string) => s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, " ");
 
 export default async function TenantPaymentsPage({

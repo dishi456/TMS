@@ -5,6 +5,7 @@ import { Card } from "@/components/ui";
 import { ProfileForm, PasswordForm } from "./ProfileForms";
 import { deleteProfileDoc } from "./actions";
 import { ImageUploader } from "@/components/ImageUploader";
+import { DocumentUploader } from "@/components/DocumentUploader";
 import { AvatarUploader } from "@/components/AvatarUploader";
 import { tenantCompletion } from "@/lib/profile";
 
@@ -84,19 +85,31 @@ export default async function TenantProfilePage({
               {docs.length === 0 ? (
                 <p className="text-sm text-slate-400">No documents uploaded.</p>
               ) : (
-                <ul className="space-y-1.5 text-sm">
+                <ul className="space-y-2 text-sm">
                   {docs.map((d) => (
                     <li key={d.id} className="flex items-center justify-between gap-2">
-                      <a href={`/api/files/${d.id}`} target="_blank" rel="noreferrer" className="truncate text-blue-600 hover:text-blue-700">{d.label ?? "Document"}</a>
-                      <form action={deleteProfileDoc}><input type="hidden" name="docId" value={d.id} /><button className="text-xs text-red-500 hover:text-red-600">remove</button></form>
+                      <div className="min-w-0">
+                        <a href={`/api/files/${d.id}`} target="_blank" rel="noreferrer" className="truncate font-medium text-blue-600 hover:text-blue-700">{d.label ?? "Document"}</a>
+                        <span className="ml-2 align-middle">
+                          {d.verified
+                            ? <span className="rounded-full bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700">✓ Verified</span>
+                            : <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Pending</span>}
+                        </span>
+                        {(d.docNumber || d.expiryDate) && (
+                          <p className="text-[11px] text-slate-400">
+                            {d.docNumber ? `No. ${d.docNumber}` : ""}{d.docNumber && d.expiryDate ? " · " : ""}{d.expiryDate ? `expires ${d.expiryDate.toLocaleDateString("en-US")}` : ""}
+                          </p>
+                        )}
+                      </div>
+                      <form action={deleteProfileDoc}><input type="hidden" name="docId" value={d.id} /><button className="shrink-0 text-xs text-red-500 hover:text-red-600">remove</button></form>
                     </li>
                   ))}
                 </ul>
               )}
               <div className="mt-3 flex flex-col gap-4 border-t border-slate-100 pt-3">
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-slate-600">Government ID</span>
-                  <ImageUploader purpose="profile-id" accept="image/*,application/pdf" />
+                  <span className="text-xs font-medium text-slate-600">Add an identity document</span>
+                  <DocumentUploader />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-medium text-slate-600">Other document</span>

@@ -117,7 +117,13 @@ export async function POST(req: Request) {
 
   // For ID/profile uploads the caller passes the document type (e.g. "Passport")
   // as refId — store it as the label so the Documents list can show the type.
-  const label = (purpose === "profile-id" || purpose === "profile-other") && refId ? refId : file.name;
+  const isProfileDoc = purpose === "profile-id" || purpose === "profile-other";
+  const label = isProfileDoc && refId ? refId : file.name;
+  // Optional identity metadata (document number + expiry) — matches the mobile app.
+  const docNumber = isProfileDoc ? (String(form.get("docNumber") || "").trim() || null) : null;
+  const expiryRaw = isProfileDoc ? String(form.get("expiryDate") || "").trim() : "";
+  const parsedExpiry = expiryRaw ? new Date(expiryRaw) : null;
+  const expiryDate = parsedExpiry && !Number.isNaN(parsedExpiry.getTime()) ? parsedExpiry : null;
 
   const doc = await prisma.document.create({
     data: {
@@ -130,6 +136,8 @@ export async function POST(req: Request) {
       contentType: file.type || null,
       sizeBytes: bytes.length,
       label,
+      docNumber,
+      expiryDate,
     },
   });
 
