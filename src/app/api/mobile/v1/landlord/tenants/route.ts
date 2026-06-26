@@ -52,7 +52,10 @@ const addSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters."),
   phone: z.string().trim().optional(),
   governmentId: z.string().trim().optional(),
+  country: z.string().trim().optional(),
+  currency: z.string().trim().optional(),
 });
+const CURRENCIES = ["USD", "AUD", "CAD", "GBP", "EUR", "INR"];
 
 export async function POST(req: Request) {
   const { user, res } = await requireMobile(req, "LANDLORD");
@@ -74,6 +77,8 @@ export async function POST(req: Request) {
         landlordId: user.id,
         phone: d.phone && d.phone.length > 0 ? d.phone : null,
         governmentId: d.governmentId && d.governmentId.length > 0 ? d.governmentId : null,
+        prefCountry: d.country || null,
+        currency: d.currency && CURRENCIES.includes(d.currency) ? d.currency : null,
       },
       select: { id: true },
     });

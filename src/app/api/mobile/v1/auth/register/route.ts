@@ -13,8 +13,12 @@ const schema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   role: z.enum(["USER", "LANDLORD"]),
+  country: z.string().trim().optional(),
+  currency: z.string().trim().optional(),
   otpToken: z.string().min(1),
 });
+
+const CURRENCIES = ["USD", "AUD", "CAD", "GBP", "EUR", "INR"];
 
 // POST /api/mobile/v1/auth/register
 // Self-signup for seekers (USER) and landlords (LANDLORD). Email must be verified
@@ -37,6 +41,8 @@ export async function POST(req: Request) {
         passwordHash: await bcrypt.hash(d.password, 10),
         role: d.role,
         status: isUser ? "ACTIVE" : "PENDING",
+        prefCountry: d.country || null,
+        currency: d.currency && CURRENCIES.includes(d.currency) ? d.currency : null,
       },
     });
     const token = await signMobileToken({ id: user.id, role: user.role });
