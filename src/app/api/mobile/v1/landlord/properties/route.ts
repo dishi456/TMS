@@ -24,6 +24,9 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const { user, res } = await requireMobile(req, "LANDLORD");
   if (res) return res;
+  // A landlord must set their unique user ID (username) before adding properties.
+  const me = await prisma.user.findUnique({ where: { id: user.id }, select: { username: true } });
+  if (!me?.username) return json({ error: "Set your unique user ID (username) on your profile before adding a property." }, 400);
   const parsed = propertyWriteSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return json({ error: parsed.error.issues[0].message }, 400);
 

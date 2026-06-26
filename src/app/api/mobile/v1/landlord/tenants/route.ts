@@ -57,6 +57,9 @@ const addSchema = z.object({
 export async function POST(req: Request) {
   const { user, res } = await requireMobile(req, "LANDLORD");
   if (res) return res;
+  // A landlord must set their unique user ID (username) before adding tenants.
+  const me = await prisma.user.findUnique({ where: { id: user.id }, select: { username: true } });
+  if (!me?.username) return json({ error: "Set your unique user ID (username) on your profile before adding a tenant." }, 400);
   const parsed = addSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return json({ error: parsed.error.issues[0].message }, 400);
   const d = parsed.data;
