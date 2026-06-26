@@ -18,6 +18,11 @@ export async function POST(req: Request) {
   const pass = String(password ?? "");
   if (!mail || !pass) return json({ error: "Email and password are required." }, 400);
 
+  // Per-account throttle (defeats distributed credential stuffing across IPs).
+  if (!rateLimit(`login-acct:${mail}`, 8, 10 * 60 * 1000).ok) {
+    return json({ error: "Too many attempts for this account. Please wait and try again." }, 429);
+  }
+
   const user = await prisma.user.findUnique({ where: { email: mail } });
   if (!user || user.status === "SUSPENDED") return json({ error: "Invalid email or password." }, 401);
 

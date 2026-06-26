@@ -50,8 +50,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ leaseId: string
 }
 
 const sendSchema = z.object({
-  body: z.string().trim().optional(),
-  attachmentUrl: z.string().optional(),
+  body: z.string().trim().max(4000).optional(),
+  // Must be an /api/files/{id} reference (validated to belong to the sender below).
+  attachmentUrl: z.string().regex(/^\/api\/files\/[a-zA-Z0-9]+$/, "Invalid attachment.").optional(),
   attachmentType: z.enum(["image", "pdf", "file"]).optional(),
 }).refine((d) => (d.body && d.body.length > 0) || d.attachmentUrl, { message: "Empty message." });
 
@@ -65,6 +66,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ leaseId: strin
   const parsed = sendSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return json({ error: parsed.error.issues[0].message }, 400);
   const d = parsed.data;
+
+  // An attached file must be one the sender actually uploaded (no injecting
+  // someone else's file id into the conversation).
+  if (d.attachmentUrl) {
+    const docId = d.attachmentUrl.split("/").pop()!;
+    const owns = await prisma.document.findFirst({ where: { id: docId, ownerId: user.id }, select: { id: true } });
+    if (!owns) return json({ error: "Attachment not found." }, 400);
+  }
 
   const msg = await prisma.leaseMessage.create({
     data: { leaseId, senderId: user.id, body: d.body || null, attachmentUrl: d.attachmentUrl || null, attachmentType: d.attachmentType || null },

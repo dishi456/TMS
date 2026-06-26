@@ -35,17 +35,39 @@ export async function GET(
       if (m) { viewerId = m.id; viewerRole = m.role; }
     }
     if (!viewerId) return new Response("Unauthorized", { status: 401 });
-    // Sensitive docs: the Master Admin or the owning user may view. A LEASE
-    // document is also viewable by BOTH parties to that lease (the contract is
-    // owned by the landlord but the tenant must be able to read it too).
-    if (SENSITIVE.includes(doc.type) && viewerRole !== "MASTER_ADMIN" && doc.ownerId !== viewerId) {
-      let allowed = false;
-      if (doc.type === "LEASE" && doc.leaseId) {
-        const lease = await prisma.lease.findUnique({ where: { id: doc.leaseId }, select: { tenantId: true, landlordId: true } });
-        allowed = !!lease && (lease.tenantId === viewerId || lease.landlordId === viewerId);
+
+    const key = doc.storageKey || "";
+    let allowed = doc.ownerId === viewerId || viewerRole === "MASTER_ADMIN";
+    if (!allowed) {
+      if (SENSITIVE.includes(doc.type)) {
+        // LEASE contracts are viewable by both parties to the lease; other
+        // sensitive docs (GOVERNMENT_ID/PROPERTY_PROOF) are owner/admin only.
+        if (doc.type === "LEASE" && doc.leaseId) {
+          const lease = await prisma.lease.findUnique({ where: { id: doc.leaseId }, select: { tenantId: true, landlordId: true } });
+          allowed = !!lease && (lease.tenantId === viewerId || lease.landlordId === viewerId);
+        }
+      } else if (doc.type === "OTHER" && key.startsWith("payments/")) {
+        // Payment proof (bank/UPI screenshot): only the paying tenant and the
+        // invoice's landlord (or admin) may view it.
+        const pay = await prisma.payment.findFirst({
+          where: { proofUrl: `/api/files/${id}` },
+          select: { tenantId: true, invoice: { select: { lease: { select: { landlordId: true } } } } },
+        });
+        allowed = !!pay && (pay.tenantId === viewerId || pay.invoice?.lease?.landlordId === viewerId);
+      } else if (doc.type === "PHOTO" && key.startsWith("chat/")) {
+        // Chat attachment: only the two parties to the lease conversation.
+        const msg = await prisma.leaseMessage.findFirst({
+          where: { attachmentUrl: `/api/files/${id}` },
+          select: { lease: { select: { tenantId: true, landlordId: true } } },
+        });
+        allowed = !!msg && (msg.lease.tenantId === viewerId || msg.lease.landlordId === viewerId);
+      } else {
+        // Avatars + maintenance images + misc photos are low-sensitivity and are
+        // shown across roles, so any authenticated user may view them.
+        allowed = true;
       }
-      if (!allowed) return new Response("Forbidden", { status: 403 });
     }
+    if (!allowed) return new Response("Forbidden", { status: 403 });
   }
 
   let data: Buffer;
