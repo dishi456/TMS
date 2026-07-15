@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { toStrArr } from "@/lib/json";
 import { roleHome, type Role } from "@/lib/roles";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Nav } from "@/app/_landing/Nav";
@@ -78,7 +79,7 @@ export default async function ListingsPage({
       bathrooms: p.bathrooms,
       areaSqft: p.areaSqft,
       furnishing: p.furnishing,
-      amenities: p.amenities,
+      amenities: toStrArr(p.amenities),
       hasLobby: p.hasLobby,
       hasParking: p.hasParking,
       hasLift: p.hasLift,

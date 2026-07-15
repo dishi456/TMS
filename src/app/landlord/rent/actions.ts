@@ -58,8 +58,8 @@ export async function recordPayment(formData: FormData) {
   const inv = await ownInvoice(session.user.id, invoiceId);
   if (!inv) redirect(BACK);
   const method = String(formData.get("method"));
-  const allowed = ["UPI", "DEBIT_CARD", "CREDIT_CARD", "NET_BANKING"];
-  const payMethod = (allowed.includes(method) ? method : "UPI") as "UPI" | "DEBIT_CARD" | "CREDIT_CARD" | "NET_BANKING";
+  const ALLOWED = ["UPI", "DEBIT_CARD", "CREDIT_CARD", "NET_BANKING", "CASH", "BANK_TRANSFER", "E_TRANSFER", "CHEQUE", "OTHER"] as const;
+  const payMethod = (ALLOWED.includes(method as (typeof ALLOWED)[number]) ? method : "UPI") as (typeof ALLOWED)[number];
 
   const payment = await prisma.payment.create({
     data: {

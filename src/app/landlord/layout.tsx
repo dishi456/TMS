@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { LandlordShell } from "@/components/LandlordShell";
 import { VerificationDocs } from "@/components/VerificationDocs";
+import { chatUnreadCount } from "@/lib/chat";
 import { logout } from "@/app/actions/auth";
 
 export const metadata: Metadata = {
@@ -43,17 +44,18 @@ export default async function LandlordLayout({
   }
 
   const landlordId = session!.user.id;
-  const [unread, chatUnread, pendingApps, pendingVisits] = await Promise.all([
+  const [unread, chatUnread, pendingApps, pendingVisits, propertyChatUnread] = await Promise.all([
     prisma.notification.count({ where: { userId: landlordId, read: false } }),
     prisma.inquiryMessage.count({ where: { fromGuest: true, readByLandlord: false, inquiry: { landlordId } } }),
     prisma.application.count({ where: { status: "PENDING", property: { landlordId } } }),
     prisma.visit.count({ where: { status: "PENDING", property: { landlordId } } }),
+    chatUnreadCount(landlordId),
   ]);
   // Total open inbound requests for the "Requests" nav badge.
   const requestsPending = pendingApps + pendingVisits + chatUnread;
 
   return (
-    <LandlordShell userName={session?.user?.name ?? "Landlord"} verified={me?.verified ?? false} unread={unread} chatUnread={chatUnread} requestsPending={requestsPending}>
+    <LandlordShell userName={session?.user?.name ?? "Landlord"} verified={me?.verified ?? false} unread={unread} chatUnread={chatUnread} propertyChatUnread={propertyChatUnread} requestsPending={requestsPending}>
       {children}
     </LandlordShell>
   );

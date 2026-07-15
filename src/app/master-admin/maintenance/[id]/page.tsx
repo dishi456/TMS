@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { toStrArr } from "@/lib/json";
 import { Card, btn, inputClass } from "@/components/ui";
 import { actionLabel, timeAgo } from "@/lib/activity";
 import { MaintenanceStatusBadge, PriorityBadge } from "../MaintenanceBadges";
@@ -93,11 +94,11 @@ export default async function MaintenanceDetailPage({
           <div>
             <h3 className="mb-2 text-sm font-semibold text-slate-700">Attached photos</h3>
             <Card>
-              {req.images.length === 0 ? (
+              {toStrArr(req.images).length === 0 ? (
                 <p className="text-sm text-slate-400">No photos attached.</p>
               ) : (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {req.images.map((url, i) => (
+                  {toStrArr(req.images).map((url, i) => (
                     <a key={i} href={url} target="_blank" rel="noreferrer">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={url} alt={`Photo ${i + 1}`} className="h-28 w-full rounded-md border border-slate-200 object-cover" />

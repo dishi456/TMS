@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { toStrArr } from "@/lib/json";
 import { Card, btn, inputClass } from "@/components/ui";
 import { MaintenanceStatusBadge, PriorityBadge } from "@/app/master-admin/maintenance/MaintenanceBadges";
 import { approveMaintenance, rejectMaintenance, assignMaintenance, setMaintenanceStatus } from "../actions";
@@ -77,12 +78,12 @@ export default async function LandlordMaintenanceDetail({
               </dl>
             </Card>
           </div>
-          {req.images.length > 0 && (
+          {toStrArr(req.images).length > 0 && (
             <div>
               <h3 className="mb-2 text-sm font-semibold text-slate-700">Attached photos</h3>
               <Card>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {req.images.map((url, i) => (
+                  {toStrArr(req.images).map((url, i) => (
                     // eslint-disable-next-line @next/next/no-img-element
                     <a key={i} href={url} target="_blank" rel="noreferrer"><img src={url} alt={`Photo ${i + 1}`} className="h-28 w-full rounded-md border border-slate-200 object-cover" /></a>
                   ))}

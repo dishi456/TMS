@@ -11,6 +11,7 @@ import { requireLandlord } from "@/lib/auth-helpers";
 import { audit } from "@/lib/audit";
 import { notify } from "@/lib/notify";
 import { saveFile, removeFile } from "@/lib/storage";
+import { extractDetails } from "@/lib/property-details";
 
 export type FormState = { error?: string; success?: string } | undefined;
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -24,7 +25,7 @@ const checkbox = z.preprocess((v) => v === "true" || v === "on", z.boolean());
 
 const schema = z.object({
   name: z.string().min(2, "Name is too short."),
-  type: z.enum(["APARTMENT", "HOUSE", "ROOM", "COMMERCIAL", "OTHER"]),
+  type: z.enum(["APARTMENT", "HOUSE", "ROOM", "COMMERCIAL", "LAND", "STUDENT_HOUSING", "OTHER"]),
   address: z.string().min(3, "Enter an address."),
   description: z.string().trim().optional(),
   rentAmount: z.coerce.number().nonnegative("Rent must be ≥ 0."),
@@ -99,7 +100,7 @@ export async function createProperty(_prev: FormState, formData: FormData): Prom
 
   // Landlord-created properties await Master Admin approval.
   const created = await prisma.property.create({
-    data: { ...toData(parsed.data), ref: await generatePropertyRef(), landlordId: session.user.id, approved: false },
+    data: { ...toData(parsed.data), details: extractDetails(formData, parsed.data.type), ref: await generatePropertyRef(), landlordId: session.user.id, approved: false },
   });
   await audit({ actorId: session.user.id, action: "property.create", entity: "Property", entityId: created.id });
 
@@ -125,7 +126,7 @@ export async function updateProperty(_prev: FormState, formData: FormData): Prom
   const { id, ...rest } = parsed.data;
   if (!(await ownProperty(session.user.id, id))) return { error: "Property not found." };
 
-  await prisma.property.update({ where: { id }, data: toData(rest) });
+  await prisma.property.update({ where: { id }, data: { ...toData(rest), details: extractDetails(formData, rest.type) } });
   await audit({ actorId: session.user.id, action: "property.update", entity: "Property", entityId: id });
   revalidatePath("/landlord/properties");
   revalidatePath(`/landlord/properties/${id}`);

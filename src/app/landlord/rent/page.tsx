@@ -8,7 +8,7 @@ import { generateInvoices, markOverdue, recordPayment, sendReminder, remindAllOv
 
 export const dynamic = "force-dynamic";
 
-const METHODS = ["UPI", "DEBIT_CARD", "CREDIT_CARD", "NET_BANKING"];
+const METHODS = ["UPI", "DEBIT_CARD", "CREDIT_CARD", "NET_BANKING", "CASH", "BANK_TRANSFER", "E_TRANSFER", "CHEQUE", "OTHER"];
 const cap = (s: string) => s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, " ");
 
 type Search = { generated?: string; overdue?: string; reminded?: string; recorded?: string; rejected?: string };

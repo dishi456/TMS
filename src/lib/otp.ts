@@ -2,7 +2,7 @@ import { createHash, randomInt, randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, emailLayout, APP_NAME } from "@/lib/email";
 
-export type OtpPurpose = "chat" | "register" | "login";
+export type OtpPurpose = "chat" | "register" | "login" | "reset";
 
 const CODE_TTL_MIN = 10; // code valid for 10 minutes
 const RESEND_COOLDOWN_SEC = 30; // min gap between sends to the same address
@@ -11,7 +11,7 @@ const MAX_ATTEMPTS = 5; // wrong guesses before the code is burned
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 const normEmail = (e: string) => e.trim().toLowerCase();
 
-export type SendResult = { ok: true } | { ok: false; error: string };
+export type SendResult = { ok: true; devCode?: string } | { ok: false; error: string };
 
 // Generate a 6-digit code, store its hash, and email it to the address.
 export async function sendOtp(rawEmail: string, purpose: OtpPurpose): Promise<SendResult> {
@@ -61,7 +61,8 @@ export async function sendOtp(rawEmail: string, purpose: OtpPurpose): Promise<Se
     ),
   });
 
-  return { ok: true };
+  // In non-production, hand the code back so the app can show it without email.
+  return process.env.NODE_ENV !== "production" ? { ok: true, devCode: code } : { ok: true };
 }
 
 export type VerifyResult = { ok: true; verifyToken: string } | { ok: false; error: string };

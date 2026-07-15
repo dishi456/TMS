@@ -1,4 +1,5 @@
 import { formatNumber } from "@/lib/format";
+import { toStrArr } from "@/lib/json";
 
 const FURNISHING_LABEL: Record<string, string> = {
   UNFURNISHED: "Unfurnished",
@@ -18,7 +19,7 @@ export type PropertyFeatureData = {
   hasParking?: boolean;
   hasLift?: boolean;
   powerBackup?: boolean;
-  amenities?: string[];
+  amenities?: unknown; // Prisma Json (former String[]) — coerced via toStrArr
 };
 
 /** Read-only property layout + facilities — shown to landlord, admin and tenant alike. */
@@ -37,7 +38,7 @@ export function PropertyFeatures({ p }: { p: PropertyFeatureData }) {
   if (p.hasParking) facilities.push("Parking");
   if (p.hasLift) facilities.push("Lift / Elevator");
   if (p.powerBackup) facilities.push("Power backup");
-  const extras = p.amenities ?? [];
+  const extras = toStrArr(p.amenities);
 
   if (facts.length === 0 && facilities.length === 0 && extras.length === 0) {
     return <p className="text-sm text-slate-400">No additional details provided yet.</p>;

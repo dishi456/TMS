@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { toStrArr } from "@/lib/json";
 import { Card } from "@/components/ui";
 import { MaintenanceStatusBadge, PriorityBadge } from "@/app/master-admin/maintenance/MaintenanceBadges";
 import { MaintenanceForm } from "./MaintenanceForm";
@@ -66,9 +67,9 @@ export default async function TenantMaintenancePage({ searchParams }: { searchPa
                     </div>
                   </div>
                   {r.assignedTo && <p className="mt-2 text-xs text-slate-500">Assigned to: {r.assignedTo}</p>}
-                  {r.images.length > 0 && (
+                  {toStrArr(r.images).length > 0 && (
                     <div className="mt-2 flex gap-2">
-                      {r.images.map((url, i) => (
+                      {toStrArr(r.images).map((url, i) => (
                         // eslint-disable-next-line @next/next/no-img-element
                         <a key={i} href={url} target="_blank" rel="noreferrer"><img src={url} alt="" className="h-12 w-12 rounded-md border border-slate-200 object-cover" /></a>
                       ))}

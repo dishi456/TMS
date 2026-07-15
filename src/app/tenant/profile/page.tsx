@@ -5,6 +5,9 @@ import { Card } from "@/components/ui";
 import { ProfileForm, PasswordForm } from "./ProfileForms";
 import { deleteProfileDoc } from "./actions";
 import { ImageUploader } from "@/components/ImageUploader";
+import { DocumentUploader } from "@/components/DocumentUploader";
+import { AvatarUploader } from "@/components/AvatarUploader";
+import { tenantCompletion } from "@/lib/profile";
 
 export const metadata: Metadata = { title: "Profile" };
 export const dynamic = "force-dynamic";
@@ -24,12 +27,30 @@ export default async function TenantProfilePage({
   ]);
   if (!user) return null;
 
+  const completion = tenantCompletion(user);
+
   return (
     <div className="space-y-5">
       <h1 className="text-lg font-semibold text-slate-800">My Profile</h1>
       {sp.uploaded && <Banner tone="green">Document uploaded.</Banner>}
       {sp.error === "nofile" && <Banner tone="amber">Please choose a file.</Banner>}
       {sp.error === "toobig" && <Banner tone="amber">File too large (max 8 MB).</Banner>}
+
+      <Card>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <AvatarUploader avatarUrl={user.avatarUrl} name={user.fullName} />
+          <div className="sm:w-56">
+            <div className="mb-1 flex items-center justify-between text-xs">
+              <span className="font-medium text-slate-600">Profile completion</span>
+              <span className="font-semibold text-slate-800">{completion}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full rounded-full bg-blue-600 transition-[width]" style={{ width: `${completion}%` }} />
+            </div>
+            {completion < 100 && <p className="mt-1.5 text-[11px] text-slate-400">Add a photo, username, phone, ID &amp; emergency contact to reach 100%.</p>}
+          </div>
+        </div>
+      </Card>
 
       <div className="grid gap-5 lg:grid-cols-2">
         <div>
@@ -39,9 +60,14 @@ export default async function TenantProfilePage({
               defaults={{
                 fullName: user.fullName,
                 email: user.email,
+                username: user.username ?? undefined,
                 phone: user.phone ?? undefined,
                 governmentId: user.governmentId ?? undefined,
                 emergencyContact: user.emergencyContact ?? undefined,
+                currency: user.currency ?? undefined,
+                prefCountry: user.prefCountry ?? undefined,
+                prefState: user.prefState ?? undefined,
+                prefCity: user.prefCity ?? undefined,
               }}
             />
           </Card>
@@ -59,19 +85,31 @@ export default async function TenantProfilePage({
               {docs.length === 0 ? (
                 <p className="text-sm text-slate-400">No documents uploaded.</p>
               ) : (
-                <ul className="space-y-1.5 text-sm">
+                <ul className="space-y-2 text-sm">
                   {docs.map((d) => (
                     <li key={d.id} className="flex items-center justify-between gap-2">
-                      <a href={`/api/files/${d.id}`} target="_blank" rel="noreferrer" className="truncate text-blue-600 hover:text-blue-700">{d.label ?? "Document"}</a>
-                      <form action={deleteProfileDoc}><input type="hidden" name="docId" value={d.id} /><button className="text-xs text-red-500 hover:text-red-600">remove</button></form>
+                      <div className="min-w-0">
+                        <a href={`/api/files/${d.id}`} target="_blank" rel="noreferrer" className="truncate font-medium text-blue-600 hover:text-blue-700">{d.label ?? "Document"}</a>
+                        <span className="ml-2 align-middle">
+                          {d.verified
+                            ? <span className="rounded-full bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700">✓ Verified</span>
+                            : <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Pending</span>}
+                        </span>
+                        {(d.docNumber || d.expiryDate) && (
+                          <p className="text-[11px] text-slate-400">
+                            {d.docNumber ? `No. ${d.docNumber}` : ""}{d.docNumber && d.expiryDate ? " · " : ""}{d.expiryDate ? `expires ${d.expiryDate.toLocaleDateString("en-US")}` : ""}
+                          </p>
+                        )}
+                      </div>
+                      <form action={deleteProfileDoc}><input type="hidden" name="docId" value={d.id} /><button className="shrink-0 text-xs text-red-500 hover:text-red-600">remove</button></form>
                     </li>
                   ))}
                 </ul>
               )}
               <div className="mt-3 flex flex-col gap-4 border-t border-slate-100 pt-3">
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-slate-600">Government ID</span>
-                  <ImageUploader purpose="profile-id" accept="image/*,application/pdf" />
+                  <span className="text-xs font-medium text-slate-600">Add an identity document</span>
+                  <DocumentUploader />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-medium text-slate-600">Other document</span>

@@ -1,13 +1,16 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { readFile } from "@/lib/storage";
+import { getMobileUser, getMobileUserFromToken } from "@/lib/mobile-auth";
 
 export const runtime = "nodejs";
 
 const SENSITIVE = ["PROPERTY_PROOF", "GOVERNMENT_ID", "LEASE"];
+// Only these are safe to render inline in a browser; anything else downloads.
+const INLINE_IMAGE = /^image\/(png|jpe?g|gif|webp|heic|heif|avif|bmp)$/i;
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
@@ -19,16 +22,57 @@ export async function GET(
   const isPublicPhoto = doc.type === "PHOTO" && !!doc.propertyId;
 
   if (!isPublicPhoto) {
+    // Identify the caller via the web session OR a mobile Bearer token, so
+    // native clients can fetch their own lease/ID documents.
     const session = await auth();
-    if (!session?.user) return new Response("Unauthorized", { status: 401 });
-    // Sensitive docs: only the Master Admin or the owning user may view.
-    if (
-      SENSITIVE.includes(doc.type) &&
-      session.user.role !== "MASTER_ADMIN" &&
-      doc.ownerId !== session.user.id
-    ) {
-      return new Response("Forbidden", { status: 403 });
+    let viewerId = session?.user?.id as string | undefined;
+    let viewerRole = session?.user?.role as string | undefined;
+    if (!viewerId) {
+      // Mobile clients can't carry a cookie session when opening a file in the
+      // system browser, so accept a Bearer header OR a ?token= query param.
+      const qToken = new URL(req.url).searchParams.get("token");
+      const m = qToken ? await getMobileUserFromToken(qToken) : await getMobileUser(req);
+      if (m) { viewerId = m.id; viewerRole = m.role; }
     }
+    if (!viewerId) return new Response("Unauthorized", { status: 401 });
+
+    const key = doc.storageKey || "";
+    let allowed = doc.ownerId === viewerId || viewerRole === "MASTER_ADMIN";
+    if (!allowed) {
+      if (SENSITIVE.includes(doc.type)) {
+        // LEASE contracts are viewable by both parties to the lease; other
+        // sensitive docs (GOVERNMENT_ID/PROPERTY_PROOF) are owner/admin only.
+        if (doc.type === "LEASE" && doc.leaseId) {
+          const lease = await prisma.lease.findUnique({ where: { id: doc.leaseId }, select: { tenantId: true, landlordId: true } });
+          allowed = !!lease && (lease.tenantId === viewerId || lease.landlordId === viewerId);
+        } else if (doc.type === "GOVERNMENT_ID" && viewerRole === "LANDLORD") {
+          // A landlord may view the identity documents of a tenant they share a
+          // lease with (for vetting / verification).
+          const shared = await prisma.lease.findFirst({ where: { landlordId: viewerId, tenantId: doc.ownerId }, select: { id: true } });
+          allowed = !!shared;
+        }
+      } else if (doc.type === "OTHER" && key.startsWith("payments/")) {
+        // Payment proof (bank/UPI screenshot): only the paying tenant and the
+        // invoice's landlord (or admin) may view it.
+        const pay = await prisma.payment.findFirst({
+          where: { proofUrl: `/api/files/${id}` },
+          select: { tenantId: true, invoice: { select: { lease: { select: { landlordId: true } } } } },
+        });
+        allowed = !!pay && (pay.tenantId === viewerId || pay.invoice?.lease?.landlordId === viewerId);
+      } else if (doc.type === "PHOTO" && key.startsWith("chat/")) {
+        // Chat attachment: only the two parties to the lease conversation.
+        const msg = await prisma.leaseMessage.findFirst({
+          where: { attachmentUrl: `/api/files/${id}` },
+          select: { lease: { select: { tenantId: true, landlordId: true } } },
+        });
+        allowed = !!msg && (msg.lease.tenantId === viewerId || msg.lease.landlordId === viewerId);
+      } else {
+        // Avatars + maintenance images + misc photos are low-sensitivity and are
+        // shown across roles, so any authenticated user may view them.
+        allowed = true;
+      }
+    }
+    if (!allowed) return new Response("Forbidden", { status: 403 });
   }
 
   let data: Buffer;
@@ -42,10 +86,16 @@ export async function GET(
   // dash), so provide an ASCII-safe fallback + RFC 5987 UTF-8 encoded name.
   const rawName = doc.fileName ?? "file";
   const asciiName = rawName.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
+  // Never serve a user-uploaded file inline unless it's a real image, and never
+  // echo a client-controlled content-type for non-images — prevents a stored
+  // HTML/SVG upload from executing as script on our origin.
+  const ct = doc.contentType ?? "";
+  const isImage = INLINE_IMAGE.test(ct);
   return new Response(new Uint8Array(data), {
     headers: {
-      "Content-Type": doc.contentType ?? "application/octet-stream",
-      "Content-Disposition": `inline; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(rawName)}`,
+      "Content-Type": isImage ? ct : "application/octet-stream",
+      "Content-Disposition": `${isImage ? "inline" : "attachment"}; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(rawName)}`,
+      "X-Content-Type-Options": "nosniff",
       "Cache-Control": isPublicPhoto ? "public, max-age=3600" : "private, max-age=60",
     },
   });

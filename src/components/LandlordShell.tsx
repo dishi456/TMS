@@ -21,7 +21,10 @@ const NAV: NavItem[] = [
   { href: "/landlord/maintenance", label: "Maintenance", icon: "wrench" },
   { href: "/landlord/complaints", label: "Complaints", icon: "chat" },
   { href: "/landlord/messages", label: "Messages", icon: "messages" },
+  { href: "/landlord/chat", label: "Property Chat", icon: "leasechat" },
   { href: "/landlord/reviews", label: "Rate Tenants", icon: "star" },
+  { href: "/landlord/blacklist", label: "Blacklist", icon: "ban" },
+  { href: "/landlord/marketplace", label: "Marketplace", icon: "bag" },
   { href: "/landlord/verification", label: "Verification", icon: "badge" },
   { href: "/landlord/notifications", label: "Notifications", icon: "bell" },
   { href: "/landlord/account", label: "Account", icon: "cog" },
@@ -36,6 +39,7 @@ export function LandlordShell({
   verified,
   unread = 0,
   chatUnread = 0,
+  propertyChatUnread = 0,
   requestsPending = 0,
   children,
 }: {
@@ -43,6 +47,7 @@ export function LandlordShell({
   verified: boolean;
   unread?: number;
   chatUnread?: number;
+  propertyChatUnread?: number;
   requestsPending?: number;
   children: React.ReactNode;
 }) {
@@ -80,6 +85,9 @@ export function LandlordShell({
                 )}
                 {item.href === "/landlord/requests" && requestsPending > 0 && (
                   <span className="ml-auto rounded-full bg-red-500 px-1.5 text-xs font-semibold text-white">{requestsPending}</span>
+                )}
+                {item.href === "/landlord/chat" && propertyChatUnread > 0 && (
+                  <span className="ml-auto rounded-full bg-red-500 px-1.5 text-xs font-semibold text-white">{propertyChatUnread}</span>
                 )}
               </Link>
             );
@@ -182,6 +190,9 @@ const icons = {
   messages: (
     <svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
   ),
+  leasechat: (
+    <svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8l-5 4z" /><path d="M8 9.5l4-2.5 4 2.5" /></svg>
+  ),
   help: (
     <svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z" /><path d="M9.5 9a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3" /><path d="M12 17h.01" /></svg>
   ),
@@ -196,6 +207,12 @@ const icons = {
   ),
   badge: (
     <svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z" /><path d="M9 12l2 2 4-4" /></svg>
+  ),
+  ban: (
+    <svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></svg>
+  ),
+  bag: (
+    <svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
   ),
   logout: (
     <svg className={ic} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>

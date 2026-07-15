@@ -23,8 +23,8 @@ export default async function LeasesPage({ searchParams }: { searchParams: Promi
     ...(q
       ? {
           OR: [
-            { property: { name: { contains: q, mode: "insensitive" } } },
-            { tenant: { fullName: { contains: q, mode: "insensitive" } } },
+            { property: { name: { contains: q } } },
+            { tenant: { fullName: { contains: q } } },
           ],
         }
       : {}),

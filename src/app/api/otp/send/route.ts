@@ -3,7 +3,7 @@ import { sendOtp, type OtpPurpose } from "@/lib/otp";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED: OtpPurpose[] = ["chat", "register"];
+const ALLOWED: OtpPurpose[] = ["chat", "register", "reset"];
 
 // Public: request an email verification code. "login" is NOT allowed here —
 // login OTPs are only issued after a password check (see auth actions).
@@ -14,5 +14,6 @@ export async function POST(req: Request) {
 
   const result = await sendOtp(String(email ?? ""), p);
   if (!result.ok) return new Response(result.error, { status: 429 });
-  return Response.json({ ok: true });
+  // devCode is only present outside production (lets the app show it without email).
+  return Response.json({ ok: true, devCode: result.devCode });
 }

@@ -3,7 +3,7 @@ import { verifyOtp, type OtpPurpose } from "@/lib/otp";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED: OtpPurpose[] = ["chat", "register"];
+const ALLOWED: OtpPurpose[] = ["chat", "register", "reset"];
 
 // Public: check a code and, on success, return a one-time verifyToken the
 // client passes to the real action (create inquiry / register).

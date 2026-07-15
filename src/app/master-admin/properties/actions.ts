@@ -10,6 +10,7 @@ import { generatePropertyRef } from "@/lib/property-ref";
 import { requireAdmin } from "@/lib/auth-helpers";
 import { audit } from "@/lib/audit";
 import { saveFile, removeFile } from "@/lib/storage";
+import { extractDetails } from "@/lib/property-details";
 
 export type FormState = { error?: string; success?: string } | undefined;
 
@@ -25,7 +26,7 @@ const checkbox = z.preprocess((v) => v === "true" || v === "on", z.boolean());
 const schema = z.object({
   landlordId: z.string().min(1, "Select a landlord."),
   name: z.string().min(2, "Name is too short."),
-  type: z.enum(["APARTMENT", "HOUSE", "ROOM", "COMMERCIAL", "OTHER"]),
+  type: z.enum(["APARTMENT", "HOUSE", "ROOM", "COMMERCIAL", "LAND", "STUDENT_HOUSING", "OTHER"]),
   address: z.string().min(3, "Enter an address."),
   description: z.string().trim().optional(),
   rentAmount: z.coerce.number().nonnegative("Rent must be ≥ 0."),
@@ -101,7 +102,7 @@ export async function createProperty(_prev: FormState, formData: FormData): Prom
   const parsed = schema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const created = await prisma.property.create({ data: { ...toData(parsed.data), ref: await generatePropertyRef() } });
+  const created = await prisma.property.create({ data: { ...toData(parsed.data), details: extractDetails(formData, parsed.data.type), ref: await generatePropertyRef() } });
   await audit({
     actorId: session.user.id,
     action: "property.create",
@@ -120,7 +121,7 @@ export async function updateProperty(_prev: FormState, formData: FormData): Prom
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { id, ...rest } = parsed.data;
 
-  await prisma.property.update({ where: { id }, data: toData(rest) });
+  await prisma.property.update({ where: { id }, data: { ...toData(rest), details: extractDetails(formData, rest.type) } });
   await audit({ actorId: session.user.id, action: "property.update", entity: "Property", entityId: id });
   revalidatePath("/master-admin/properties");
   revalidatePath(`/master-admin/properties/${id}`);

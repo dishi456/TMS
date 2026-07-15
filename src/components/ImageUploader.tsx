@@ -14,6 +14,7 @@ export function ImageUploader({
   accept = "image/*",
   multiple = false,
   buttonLabel = "Choose file",
+  extraFields,
   onUploaded,
 }: {
   purpose: string;
@@ -21,6 +22,8 @@ export function ImageUploader({
   accept?: string;
   multiple?: boolean;
   buttonLabel?: string;
+  // Extra string fields appended to the upload (e.g. docNumber, expiryDate).
+  extraFields?: Record<string, string | undefined>;
   onUploaded?: (u: Uploaded) => void;
 }) {
   const router = useRouter();
@@ -34,6 +37,7 @@ export function ImageUploader({
       const fd = new FormData();
       fd.append("purpose", purpose);
       if (refId) fd.append("refId", refId);
+      if (extraFields) for (const [k, v] of Object.entries(extraFields)) if (v) fd.append(k, v);
       fd.append("file", file);
       const xhr = new XMLHttpRequest();
       xhr.open("POST", "/api/upload");

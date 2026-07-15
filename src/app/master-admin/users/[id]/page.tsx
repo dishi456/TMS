@@ -7,7 +7,7 @@ import { StatCard } from "@/components/StatCard";
 import { formatMoney, formatNumber } from "@/lib/format";
 import { UserForm } from "../UserForm";
 import { UserStatusBadge } from "../UserStatusBadge";
-import { setUserStatus, setUserVerified, deleteUser } from "../actions";
+import { setUserStatus, setUserVerified, deleteUser, changeUserRole } from "../actions";
 import { adminUploadUserDoc, adminDeleteUserDoc } from "../doc-actions";
 import { ZoomImage } from "@/components/ZoomImage";
 
@@ -18,7 +18,7 @@ export default async function UserDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ uploaded?: string; error?: string }>;
+  searchParams: Promise<{ uploaded?: string; error?: string; role?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -107,6 +107,36 @@ export default async function UserDetailPage({
             </ConfirmButton>
           </form>
         </div>
+      </div>
+
+      {/* Role management (RBAC) */}
+      <div>
+        <h3 className="mb-2 text-sm font-semibold text-slate-700">Role &amp; access</h3>
+        {sp.role === "ok" && <Banner tone="green">Role updated.</Banner>}
+        {sp.error === "self-role" && <Banner tone="amber">You can&apos;t change your own role.</Banner>}
+        <Card>
+          <form action={changeUserRole} className="flex flex-wrap items-end gap-3">
+            <input type="hidden" name="id" value={user.id} />
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-slate-500">Account role</span>
+              <select name="role" defaultValue={user.role} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
+                <option value="USER">User (seeker)</option>
+                <option value="TENANT">Tenant</option>
+                <option value="LANDLORD">Landlord</option>
+                <option value="MASTER_ADMIN">Master Admin</option>
+              </select>
+            </label>
+            <ConfirmButton
+              message="Change this user's role? This affects what they can access. Existing data (properties, leases) is not deleted."
+              className={btn("secondary")}
+            >
+              Change role
+            </ConfirmButton>
+            <p className="w-full text-xs text-slate-400">
+              Changing a role updates access immediately. Promoting to Master Admin grants full platform control — use with care.
+            </p>
+          </form>
+        </Card>
       </div>
 
       {/* Performance / history */}

@@ -24,8 +24,8 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
     ...(q
       ? {
           OR: [
-            { title: { contains: q, mode: "insensitive" } },
-            { property: { name: { contains: q, mode: "insensitive" } } },
+            { title: { contains: q } },
+            { property: { name: { contains: q } } },
           ],
         }
       : {}),

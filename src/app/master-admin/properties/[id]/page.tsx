@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { toStrArr } from "@/lib/json";
 import { Badge, Card, btn } from "@/components/ui";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { StatCard } from "@/components/StatCard";
@@ -194,8 +195,9 @@ export default async function PropertyDetailPage({
                 projectName: property.projectName ?? undefined,
                 bachelorsAllowed: property.bachelorsAllowed,
                 listedPublic: property.listedPublic,
-                amenities: property.amenities.join(", "),
+                amenities: toStrArr(property.amenities).join(", "),
                 availability: property.availability,
+                details: (property.details as Record<string, unknown>) ?? undefined,
               }}
             />
           </Card>
